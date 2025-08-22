@@ -1,4 +1,4 @@
-package com.bsep.pki.model;
+package com.bsep.pki.models;
 
 public enum UserRole {
     ADMIN,
