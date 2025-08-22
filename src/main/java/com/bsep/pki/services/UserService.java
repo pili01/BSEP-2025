@@ -5,9 +5,11 @@ import com.bsep.pki.dtos.RegistrationDto;
 import com.bsep.pki.models.User;
 import com.bsep.pki.models.UserRole;
 import com.bsep.pki.repositories.UserRepository;
+import com.bsep.pki.services.EmailService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -15,10 +17,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.emailService=emailService;
     }
 
     public User registerUser(RegistrationDto registrationDto) {
@@ -36,7 +40,14 @@ public class UserService {
         user.setVerified(false);
         user.setPasswordChanged(false);
 
-        return userRepository.save(user);
+
+        user = userRepository.save(user);
+
+
+        String verificationLink = "http://localhost:8080/api/auth/verify?email=" + user.getEmail();
+        emailService.sendVerificationEmail(registrationDto, verificationLink);
+
+        return user;
     }
 
     public Optional<User> loginUser(LoginDto loginDto) {
@@ -49,5 +60,30 @@ public class UserService {
             }
         }
         return Optional.empty();
+    }
+
+    public boolean verifyUser(String email) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            
+
+            if (user.isVerified()) {
+                throw new RuntimeException("User is already verified.");
+            }
+            
+            // Provjera vremena za link 24 sata od reg
+            if (user.getCreatedAt().plusHours(24).isBefore(LocalDateTime.now())) {
+                throw new RuntimeException("Verification link has expired. Please register again.");
+            }
+            
+
+            user.setVerified(true);
+            userRepository.save(user);
+            return true;
+        }
+        
+        return false;
     }
 }

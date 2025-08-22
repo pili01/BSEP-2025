@@ -46,6 +46,9 @@ public class User {
     @Column(nullable = false)
     private boolean passwordChanged = false;
     
+    @Column(name = "password_reset_requested")
+    private LocalDateTime passwordResetRequested;
+    
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     
@@ -123,6 +126,14 @@ public class User {
     
     public void setPasswordChanged(boolean passwordChanged) {
         this.passwordChanged = passwordChanged;
+    }
+    
+    public LocalDateTime getPasswordResetRequested() {
+        return passwordResetRequested;
+    }
+    
+    public void setPasswordResetRequested(LocalDateTime passwordResetRequested) {
+        this.passwordResetRequested = passwordResetRequested;
     }
     
     public LocalDateTime getCreatedAt() {
