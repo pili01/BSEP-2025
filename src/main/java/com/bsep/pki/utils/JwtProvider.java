@@ -1,6 +1,7 @@
 package com.bsep.pki.utils;
 
 import com.bsep.pki.models.User;
+import com.bsep.pki.models.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -41,8 +42,9 @@ public class JwtProvider {
                 .setExpiration(expireDate)
                 .setId(jti)
                 .claim("userId", user.getId())
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .claim("role", user.getRole().name()).signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
+
     }
 
     private Claims getClaimsFromToken(String token) {
@@ -63,6 +65,11 @@ public class JwtProvider {
 
     public Long getUserIdFromToken(String token) {
         return getClaimsFromToken(token).get("userId", Long.class);
+    }
+
+    public UserRole getRoleFromToken(String token) {
+        String roleName = getClaimsFromToken(token).get("role", String.class);
+        return UserRole.valueOf(roleName);
     }
 
     public boolean validateToken(String token) {
