@@ -66,6 +66,9 @@ public class CertificateService {
             if (issuerInfo.isEmpty()) {
                 throw new IllegalArgumentException("Issuer certificate not found.");
             }
+
+            validateCertificateChain(issuerInfo.get(), 1);
+
             if (!isCertificateValid(issuerInfo.get())) {
                 throw new IllegalArgumentException("Issuer certificate is not valid.");
             }
@@ -114,6 +117,7 @@ public class CertificateService {
         certInfo.setKeystorePath(KEYSTORE_PATH + organization.replace(" ", "_") + ".jks");
         certInfo.setAlias(commonName);
         certInfo.setKeyUsage("keyCertSign, cRLSign");
+        certInfo.setIssuerSerialNumber(null);
 
         certificateRepository.save(certInfo);
 
@@ -171,6 +175,7 @@ public class CertificateService {
         certInfo.setKeystorePath(KEYSTORE_PATH + organization.replace(" ", "_") + ".jks");
         certInfo.setAlias(commonName);
         certInfo.setKeyUsage("keyCertSign, cRLSign");
+        certInfo.setIssuerSerialNumber(issuerInfo.getSerialNumber());
 
         certificateRepository.save(certInfo);
 
@@ -212,5 +217,29 @@ public class CertificateService {
 
     private boolean isCertificateRevoked(Certificate certificateInfo) {
         return certificateInfo.isRevoked();
+    }
+
+    private void validateCertificateChain(Certificate issuerInfo, int currentDepth) throws Exception {
+        if (currentDepth > 20) {
+            throw new IllegalArgumentException("Certificate chain depth exceeds maximum allowed (20 levels)");
+        }
+        
+        if (!isCertificateValid(issuerInfo)) {
+            throw new IllegalArgumentException("Issuer certificate is not valid in chain validation");
+        }
+        
+        if (isCertificateRevoked(issuerInfo)) {
+            throw new IllegalArgumentException("Issuer certificate is revoked in chain validation");
+        }
+        
+        if (issuerInfo.getType() != CertificateType.ROOT) {
+            String parentSerialNumber = issuerInfo.getIssuerSerialNumber();
+            if (parentSerialNumber != null && !parentSerialNumber.isEmpty()) {
+                Optional<Certificate> parentIssuer = certificateRepository.findBySerialNumber(parentSerialNumber);
+                if (parentIssuer.isPresent()) {
+                    validateCertificateChain(parentIssuer.get(), currentDepth + 1);
+                }
+            }
+        }
     }
 }

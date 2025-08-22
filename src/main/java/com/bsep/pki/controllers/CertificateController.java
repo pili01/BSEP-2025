@@ -36,6 +36,7 @@ public class CertificateController {
             }
 
             UserRole userRole = jwtProvider.getRoleFromToken(token);
+            String userOrganization = jwtProvider.getOrganizationFromToken(token);
 
             if (requestDto.getType() == CertificateType.ROOT) {
                 if (userRole != UserRole.ADMIN) {
@@ -47,6 +48,10 @@ public class CertificateController {
                 }
             } else {
                 return new ResponseEntity<>("Invalid certificate type.", HttpStatus.BAD_REQUEST);
+            }
+
+            if (!requestDto.getOrganization().equals(userOrganization)) {
+                return new ResponseEntity<>("You can only issue certificates for your own organization: " + userOrganization, HttpStatus.FORBIDDEN);
             }
 
             certificateService.issueCertificate(

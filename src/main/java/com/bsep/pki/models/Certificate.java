@@ -44,6 +44,9 @@ public class Certificate {
     @Column
     private String keyUsage;
 
+    @Column(name = "issuer_serial_number")
+    private String issuerSerialNumber;
+
     public Certificate() {
     }
 
@@ -141,5 +144,13 @@ public class Certificate {
 
     public void setKeyUsage(String keyUsage) {
         this.keyUsage = keyUsage;
+    }
+
+    public String getIssuerSerialNumber() {
+        return issuerSerialNumber;
+    }
+
+    public void setIssuerSerialNumber(String issuerSerialNumber) {
+        this.issuerSerialNumber = issuerSerialNumber;
     }
 }

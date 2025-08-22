@@ -42,7 +42,9 @@ public class JwtProvider {
                 .setExpiration(expireDate)
                 .setId(jti)
                 .claim("userId", user.getId())
-                .claim("role", user.getRole().name()).signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .claim("role", user.getRole().name())
+                .claim("organization", user.getOrganization())
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
 
     }
@@ -79,5 +81,9 @@ public class JwtProvider {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public String getOrganizationFromToken(String token) {
+        return getClaimsFromToken(token).get("organization", String.class);
     }
 }
