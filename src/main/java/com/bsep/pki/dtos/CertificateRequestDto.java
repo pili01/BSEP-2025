@@ -10,6 +10,8 @@ import java.util.Optional;
 
 public class CertificateRequestDto {
 
+    private Optional<String> targetUserEmail;
+
     @NotBlank(message = "Common name must not be blank")
     private String commonName;
 
@@ -94,5 +96,13 @@ public class CertificateRequestDto {
 
     public void setExtendedKeyUsage(List<String> extendedKeyUsage) {
         this.extendedKeyUsage = extendedKeyUsage;
+    }
+
+    public Optional<String> getTargetUserEmail() {
+        return targetUserEmail;
+    }
+
+    public void setTargetUserEmail(Optional<String> targetUserEmail) {
+        this.targetUserEmail = targetUserEmail;
     }
 }

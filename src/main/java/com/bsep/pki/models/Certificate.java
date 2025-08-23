@@ -52,6 +52,9 @@ public class Certificate {
     @Column
     private String issuerSerialNumber;
 
+    @Column(name = "keystore_password", nullable = true)
+    private String keystorePassword;
+
     public String getSerialNumber() {
         return serialNumber;
     }
@@ -170,5 +173,13 @@ public class Certificate {
 
     public void setIssuerSerialNumber(String issuerSerialNumber) {
         this.issuerSerialNumber = issuerSerialNumber;
+    }
+
+    public String getKeystorePassword() {
+        return keystorePassword;
+    }
+
+    public void setKeystorePassword(String keystorePassword) {
+        this.keystorePassword = keystorePassword;
     }
 }

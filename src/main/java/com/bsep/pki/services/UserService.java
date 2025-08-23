@@ -8,7 +8,12 @@ import com.bsep.pki.repositories.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Optional;
 
 @Service
@@ -21,7 +26,7 @@ public class UserService {
     public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.emailService=emailService;
+        this.emailService = emailService;
     }
 
     public User registerUser(RegistrationDto registrationDto) {
@@ -39,14 +44,62 @@ public class UserService {
         user.setVerified(false);
         user.setPasswordChanged(false);
 
-
         user = userRepository.save(user);
-
 
         String verificationLink = "http://localhost:8080/api/auth/verify?email=" + user.getEmail();
         emailService.sendVerificationEmail(registrationDto, verificationLink);
 
         return user;
+    }
+
+    public User registerAdmin(RegistrationDto registrationDto) throws NoSuchAlgorithmException {
+        if (userRepository.findByEmail(registrationDto.getEmail()).isPresent()) {
+            throw new RuntimeException("Email is already in use.");
+        }
+
+        User admin = new User();
+        admin.setEmail(registrationDto.getEmail());
+        admin.setPassword(passwordEncoder.encode(registrationDto.getPassword()));
+        admin.setFirstName(registrationDto.getFirstName());
+        admin.setLastName(registrationDto.getLastName());
+        admin.setOrganization(registrationDto.getOrganization());
+        admin.setRole(UserRole.ADMIN);
+        admin.setVerified(true);
+        admin.setPasswordChanged(false);
+        generateAndSetEncryptionKey(admin);
+
+        return userRepository.save(admin);
+    }
+
+    public User registerCAUser(RegistrationDto registrationDto) throws NoSuchAlgorithmException {
+        if (userRepository.findByEmail(registrationDto.getEmail()).isPresent()) {
+            throw new RuntimeException("Email is already in use.");
+        }
+
+        User caUser = new User();
+        caUser.setEmail(registrationDto.getEmail());
+        caUser.setPassword(passwordEncoder.encode(registrationDto.getPassword()));
+        caUser.setFirstName(registrationDto.getFirstName());
+        caUser.setLastName(registrationDto.getLastName());
+        caUser.setOrganization(registrationDto.getOrganization());
+        caUser.setRole(UserRole.CA_USER);
+        caUser.setVerified(true);
+        caUser.setPasswordChanged(false);
+        generateAndSetEncryptionKey(caUser);
+
+        return userRepository.save(caUser);
+    }
+
+    private void generateAndSetEncryptionKey(User user) throws NoSuchAlgorithmException {
+        SecureRandom random = new SecureRandom();
+        byte[] salt = new byte[16];
+        random.nextBytes(salt);
+        user.setSalt(Base64.getEncoder().encodeToString(salt));
+
+        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+        keyGen.init(256);
+        SecretKey secretKey = keyGen.generateKey();
+        user.setEncryptionKey(Base64.getEncoder().encodeToString(secretKey.getEncoded()));
     }
 
     public Optional<User> loginUser(LoginDto loginDto) {
@@ -63,26 +116,25 @@ public class UserService {
 
     public boolean verifyUser(String email) {
         Optional<User> userOptional = userRepository.findByEmail(email);
-        
+
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            
+
 
             if (user.isVerified()) {
                 throw new RuntimeException("User is already verified.");
             }
-            
-            // Provjera vremena za link 24 sata od reg
+
             if (user.getCreatedAt().plusHours(24).isBefore(LocalDateTime.now())) {
                 throw new RuntimeException("Verification link has expired. Please register again.");
             }
-            
+
 
             user.setVerified(true);
             userRepository.save(user);
             return true;
         }
-        
+
         return false;
     }
 

@@ -20,7 +20,7 @@ public class CertificateTemplate {
     private String commonNameRegex;
 
     @Column
-    private String sansRegex; // Vraćeno
+    private String sansRegex;
 
     @Column(nullable = false)
     private long maxValidityDays;
@@ -29,12 +29,10 @@ public class CertificateTemplate {
     private String keyUsage;
 
     @Column
-    private String extendedKeyUsage; // Vraćeno
+    private String extendedKeyUsage;
 
     public CertificateTemplate() {
     }
-
-    // Getteri i seteri
 
     public String getSansRegex() {
         return sansRegex;

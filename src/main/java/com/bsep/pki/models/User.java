@@ -51,6 +51,12 @@ public class User {
     
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "encryption_key", nullable = true)
+    private String encryptionKey;
+
+    @Column(name = "salt", nullable = true)
+    private String salt;
     
     public User() {
         this.createdAt = LocalDateTime.now();
@@ -142,5 +148,21 @@ public class User {
     
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getEncryptionKey() {
+        return encryptionKey;
+    }
+
+    public void setEncryptionKey(String encryptionKey) {
+        this.encryptionKey = encryptionKey;
+    }
+
+    public String getSalt() {
+        return salt;
+    }
+
+    public void setSalt(String salt) {
+        this.salt = salt;
     }
 }

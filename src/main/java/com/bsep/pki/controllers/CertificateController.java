@@ -50,24 +50,50 @@ public class CertificateController {
                 return new ResponseEntity<>("Authenticated user not found.", HttpStatus.UNAUTHORIZED);
             }
 
-            User user = optionalUser.get();
+            User issuingUser = optionalUser.get();
+
+            User targetUser = null;
+            if (requestDto.getType() != CertificateType.ROOT) {
+                if (requestDto.getTargetUserEmail() == null || requestDto.getTargetUserEmail().isEmpty()) {
+                    return new ResponseEntity<>("Target user email is required for non-ROOT certificates.", HttpStatus.BAD_REQUEST);
+                }
+
+                Optional<User> userFromDb = userService.findByEmail(requestDto.getTargetUserEmail().get());
+                if (userFromDb.isEmpty()) {
+                    return new ResponseEntity<>("Target user not found.", HttpStatus.BAD_REQUEST);
+                }
+                targetUser = userFromDb.get();
+            } else {
+                // Ako je tip ROOT, target user je korisnik koji izdaje sertifikat
+                targetUser = issuingUser;
+            }
+
             if (requestDto.getType() == CertificateType.ROOT) {
                 if (userRole != UserRole.ADMIN) {
                     return new ResponseEntity<>("Only an ADMIN can issue ROOT certificates.", HttpStatus.FORBIDDEN);
                 }
             } else if (requestDto.getType() == CertificateType.INTERMEDIATE) {
                 if (userRole != UserRole.ADMIN && userRole != UserRole.CA_USER) {
-                    return new ResponseEntity<>("Only an ADMIN or CA_USER can issue INTERMEDIATE or END_ENTITY certificates.", HttpStatus.FORBIDDEN);
+                    return new ResponseEntity<>("Only an ADMIN or CA_USER can issue INTERMEDIATE certificates.", HttpStatus.FORBIDDEN);
                 }
-
+                if (targetUser.getRole() != UserRole.CA_USER) {
+                    return new ResponseEntity<>("Intermediate certificates can only be issued for CA users.", HttpStatus.FORBIDDEN);
+                }
                 if (!requestDto.getOrganization().equals(userOrganization)) {
                     return new ResponseEntity<>("You can only issue certificates for your own organization: " + userOrganization, HttpStatus.FORBIDDEN);
+                }
+            } else if (requestDto.getType() == CertificateType.END_ENTITY) {
+                if (userRole != UserRole.ADMIN && userRole != UserRole.CA_USER) {
+                    return new ResponseEntity<>("Only an ADMIN or CA_USER can issue END_ENTITY certificates.", HttpStatus.FORBIDDEN);
+                }
+                if (targetUser.getRole() != UserRole.REGULAR_USER) {
+                    return new ResponseEntity<>("End entity certificates can only be issued for REGULAR users.", HttpStatus.FORBIDDEN);
                 }
             } else {
                 return new ResponseEntity<>("Invalid certificate type.", HttpStatus.BAD_REQUEST);
             }
 
-            certificateService.issueCertificate(requestDto, user);
+            certificateService.issueCertificate(requestDto, issuingUser, targetUser);
 
             return new ResponseEntity<>("Certificate successfully issued.", HttpStatus.CREATED);
 
