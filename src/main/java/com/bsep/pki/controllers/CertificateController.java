@@ -1,6 +1,7 @@
 package com.bsep.pki.controllers;
 
 import com.bsep.pki.dtos.CertificateRequestDto;
+import com.bsep.pki.dtos.CsrRequestDto;
 import com.bsep.pki.models.CertificateType;
 import com.bsep.pki.models.User;
 import com.bsep.pki.models.UserRole;
@@ -12,11 +13,14 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -104,6 +108,136 @@ public class CertificateController {
         } catch (Exception e) {
             e.printStackTrace();
             return new ResponseEntity<>("An error occurred while issuing the certificate.", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @PostMapping("/csr/upload")
+    public ResponseEntity<String> uploadCsr(@Valid @RequestBody CsrRequestDto csrDto, HttpServletRequest request) {
+        try {
+            // 1. JWT validacija
+            String token = getJwtFromRequest(request);
+            if (!StringUtils.hasText(token)) {
+                return new ResponseEntity<>("Authorization token is missing.", HttpStatus.UNAUTHORIZED);
+            }
+
+            // 2. Role provera - samo REGULAR_USER može da upload-uje CSR
+            UserRole userRole = jwtProvider.getRoleFromToken(token);
+            if (userRole != UserRole.REGULAR_USER) {
+                return new ResponseEntity<>("Only REGULAR_USER can upload CSR.", HttpStatus.FORBIDDEN);
+            }
+
+            // 3. User validacija
+            String userEmail = jwtProvider.getEmailFromToken(token);
+            Optional<User> optionalUser = userService.findByEmail(userEmail);
+            if (optionalUser.isEmpty()) {
+                return new ResponseEntity<>("Authenticated user not found.", HttpStatus.UNAUTHORIZED);
+            }
+
+            User issuingUser = optionalUser.get();
+
+            // 4. Target user validacija
+            Optional<User> targetUserOptional = userService.findByEmail(csrDto.getTargetUserEmail());
+            if (targetUserOptional.isEmpty()) {
+                return new ResponseEntity<>("Target user not found.", HttpStatus.BAD_REQUEST);
+            }
+
+            User targetUser = targetUserOptional.get();
+
+            // 5. Organization provera
+            String userOrganization = jwtProvider.getOrganizationFromToken(token);
+            if (!csrDto.getOrganization().equals(userOrganization)) {
+                return new ResponseEntity<>("You can only issue certificates for your own organization: " + userOrganization, HttpStatus.FORBIDDEN);
+            }
+
+            // 6. CSR upload - samo čuvamo CSR, ne potpisujemo ga
+            certificateService.uploadCsr(csrDto, issuingUser, targetUser);
+
+            return new ResponseEntity<>("CSR successfully uploaded and pending approval.", HttpStatus.CREATED);
+
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (SecurityException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.FORBIDDEN);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>("An error occurred while processing CSR: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @PostMapping("/csr/sign")
+    public ResponseEntity<String> signCsr(@Valid @RequestBody CsrRequestDto csrDto, HttpServletRequest request) {
+        try {
+            // 1. JWT validacija
+            String token = getJwtFromRequest(request);
+            if (!StringUtils.hasText(token)) {
+                return new ResponseEntity<>("Authorization token is missing.", HttpStatus.UNAUTHORIZED);
+            }
+
+            // 2. Role provera - samo CA_USER može da potpisuje CSR
+            UserRole userRole = jwtProvider.getRoleFromToken(token);
+            if (userRole != UserRole.ADMIN && userRole != UserRole.CA_USER) {
+                return new ResponseEntity<>("Only ADMIN or CA_USER can sign CSR requests.", HttpStatus.FORBIDDEN);
+            }
+
+            // 3. User validacija
+            String userEmail = jwtProvider.getEmailFromToken(token);
+            Optional<User> optionalUser = userService.findByEmail(userEmail);
+            if (optionalUser.isEmpty()) {
+                return new ResponseEntity<>("Authenticated user not found.", HttpStatus.UNAUTHORIZED);
+            }
+
+            User signingUser = optionalUser.get();
+
+            // 4. Target user validacija
+            Optional<User> targetUserOptional = userService.findByEmail(csrDto.getTargetUserEmail());
+            if (targetUserOptional.isEmpty()) {
+                return new ResponseEntity<>("Target user not found.", HttpStatus.BAD_REQUEST);
+            }
+
+            User targetUser = targetUserOptional.get();
+
+            // 5. Organization provera
+            String userOrganization = jwtProvider.getOrganizationFromToken(token);
+            if (!csrDto.getOrganization().equals(userOrganization)) {
+                return new ResponseEntity<>("You can only sign certificates for your own organization: " + userOrganization, HttpStatus.FORBIDDEN);
+            }
+
+            // 6. CSR signing i izdavanje sertifikata
+            certificateService.signCsrAndIssueCertificate(csrDto, signingUser, targetUser);
+
+            return new ResponseEntity<>("CSR successfully signed and certificate issued.", HttpStatus.CREATED);
+
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (SecurityException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.FORBIDDEN);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>("An error occurred while signing CSR: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @GetMapping("/ca/list")
+    public ResponseEntity<List<Map<String, String>>> getAvailableCaCertificates(HttpServletRequest request) {
+        try {
+            // JWT validacija
+            String token = getJwtFromRequest(request);
+            if (!StringUtils.hasText(token)) {
+                return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+            }
+
+            // Role provera
+            UserRole userRole = jwtProvider.getRoleFromToken(token);
+            if (userRole != UserRole.ADMIN && userRole != UserRole.CA_USER) {
+                return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+            }
+
+            // Get CA certificates
+            List<Map<String, String>> caList = certificateService.getAvailableCaCertificates();
+            return new ResponseEntity<>(caList, HttpStatus.OK);
+
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
