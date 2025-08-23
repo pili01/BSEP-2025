@@ -100,6 +100,12 @@ public class CertificateService {
                 throw new IllegalArgumentException("Issuer certificate has been revoked.");
             }
 
+            Certificate issuerCertificate = issuerInfo.get();
+
+            if (!issuerCertificate.getUser().equals(issuingUser)) {
+                throw new SecurityException("You are not authorized to use this certificate as an issuer.");
+            }
+
             checkIssuerPolicy(requestDto, optionalTemplate, issuerInfo.get());
 
             if (requestDto.getType() == CertificateType.INTERMEDIATE) {
@@ -206,7 +212,32 @@ public class CertificateService {
                 keyPair.getPublic()
         );
 
+        List<String> finalKeyUsageList = new ArrayList<>(optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(new ArrayList<>()));
+        finalKeyUsageList.addAll(requestDto.getKeyUsage());
+        finalKeyUsageList.add("keyCertSign");
+        finalKeyUsageList.add("cRLSign");
+        finalKeyUsageList.add("digitalSignature");
+        finalKeyUsageList.add("nonRepudiation");
+        finalKeyUsageList.add("keyEncipherment");
+        finalKeyUsageList.add("dataEncipherment");
+        finalKeyUsageList.add("keyAgreement");
+
+        String keyUsageString = finalKeyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
+
+        List<String> finalExtendedKeyUsageList = new ArrayList<>(optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getExtendedKeyUsage()));
+        finalExtendedKeyUsageList.add("serverAuth");
+        finalExtendedKeyUsageList.add("clientAuth");
+        finalExtendedKeyUsageList.add("codeSigning");
+        finalExtendedKeyUsageList.add("emailProtection");
+        finalExtendedKeyUsageList.add("timeStamping");
+        finalExtendedKeyUsageList.add("ocspSigning");
+
+        String extendedKeyUsageString = finalExtendedKeyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
+
+        String sansRegexString = optionalTemplate.map(CertificateTemplate::getSansRegex).orElse(null);
+
         addExtensionsToBuilder(certBuilder, requestDto, optionalTemplate, true);
+
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(issuerPrivateKey);
         X509Certificate certificate = new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
 
@@ -214,20 +245,9 @@ public class CertificateService {
         newChain[0] = certificate;
         System.arraycopy(issuerChain, 0, newChain, 1, issuerChain.length);
 
-        // Keystore lozinka ostaje ista za celu organizaciju
         String keystorePassword = issuerKeystorePassword;
-
         String keystorePath = KEYSTORE_PATH + requestDto.getOrganization().replace(" ", "_") + ".jks";
         saveToKeystore(certificate, keyPair.getPrivate(), requestDto.getCommonName(), newChain, keystorePath, keystorePassword);
-
-        List<String> finalKeyUsageList = new ArrayList<>(optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(new ArrayList<>()));
-        finalKeyUsageList.addAll(requestDto.getKeyUsage());
-        finalKeyUsageList.add("keyCertSign");
-        finalKeyUsageList.add("cRLSign");
-        String keyUsageString = finalKeyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
-        String extendedKeyUsageString = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage)
-                .orElse(requestDto.getExtendedKeyUsage().stream().collect(Collectors.joining(", ")));
-        String sansRegexString = optionalTemplate.map(CertificateTemplate::getSansRegex).orElse(null);
 
         Certificate certInfo = new Certificate();
         certInfo.setSerialNumber(certificate.getSerialNumber().toString());

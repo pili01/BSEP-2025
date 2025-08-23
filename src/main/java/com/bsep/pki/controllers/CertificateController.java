@@ -64,7 +64,6 @@ public class CertificateController {
                 }
                 targetUser = userFromDb.get();
             } else {
-                // Ako je tip ROOT, target user je korisnik koji izdaje sertifikat
                 targetUser = issuingUser;
             }
 
@@ -88,6 +87,9 @@ public class CertificateController {
                 }
                 if (targetUser.getRole() != UserRole.REGULAR_USER) {
                     return new ResponseEntity<>("End entity certificates can only be issued for REGULAR users.", HttpStatus.FORBIDDEN);
+                }
+                if (!requestDto.getOrganization().equals(userOrganization)) {
+                    return new ResponseEntity<>("You can only issue certificates for your own organization: " + userOrganization, HttpStatus.FORBIDDEN);
                 }
             } else {
                 return new ResponseEntity<>("Invalid certificate type.", HttpStatus.BAD_REQUEST);
