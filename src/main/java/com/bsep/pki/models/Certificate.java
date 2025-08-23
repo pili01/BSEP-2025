@@ -6,12 +6,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "certificates")
 public class Certificate {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false, unique = true)
     private String serialNumber;
 
     @Column(nullable = false)
@@ -27,12 +22,12 @@ public class Certificate {
     private LocalDateTime endDate;
 
     @Column(nullable = false)
-    private boolean revoked = false;
+    private boolean isRevoked;
 
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
     private CertificateType type;
 
-    @Column(nullable = false)
+    @Column
     private String organization;
 
     @Column
@@ -44,19 +39,14 @@ public class Certificate {
     @Column
     private String keyUsage;
 
-    @Column(name = "issuer_serial_number")
+    @Column
+    private String extendedKeyUsage;
+
+    @Column
+    private String sansRegex;
+
+    @Column
     private String issuerSerialNumber;
-
-    public Certificate() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getSerialNumber() {
         return serialNumber;
@@ -99,19 +89,19 @@ public class Certificate {
     }
 
     public boolean isRevoked() {
-        return revoked;
+        return isRevoked;
     }
 
     public void setRevoked(boolean revoked) {
-        this.revoked = revoked;
+        isRevoked = revoked;
     }
 
     public CertificateType getType() {
         return type;
     }
 
-    public void setType(CertificateType certificateType) {
-        this.type = certificateType;
+    public void setType(CertificateType type) {
+        this.type = type;
     }
 
     public String getOrganization() {
@@ -144,6 +134,22 @@ public class Certificate {
 
     public void setKeyUsage(String keyUsage) {
         this.keyUsage = keyUsage;
+    }
+
+    public String getExtendedKeyUsage() {
+        return extendedKeyUsage;
+    }
+
+    public void setExtendedKeyUsage(String extendedKeyUsage) {
+        this.extendedKeyUsage = extendedKeyUsage;
+    }
+
+    public String getSansRegex() {
+        return sansRegex;
+    }
+
+    public void setSansRegex(String sansRegex) {
+        this.sansRegex = sansRegex;
     }
 
     public String getIssuerSerialNumber() {

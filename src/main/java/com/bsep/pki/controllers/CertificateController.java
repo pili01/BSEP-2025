@@ -54,13 +54,7 @@ public class CertificateController {
                 return new ResponseEntity<>("You can only issue certificates for your own organization: " + userOrganization, HttpStatus.FORBIDDEN);
             }
 
-            certificateService.issueCertificate(
-                    requestDto.getCommonName(),
-                    requestDto.getOrganization(),
-                    requestDto.getValidityInDays(),
-                    requestDto.getType(),
-                    requestDto.getIssuerSerialNumber()
-            );
+            certificateService.issueCertificate(requestDto);
 
             return new ResponseEntity<>("Certificate successfully issued.", HttpStatus.CREATED);
 
