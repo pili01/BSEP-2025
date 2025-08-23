@@ -5,7 +5,6 @@ import com.bsep.pki.dtos.RegistrationDto;
 import com.bsep.pki.models.User;
 import com.bsep.pki.models.UserRole;
 import com.bsep.pki.repositories.UserRepository;
-import com.bsep.pki.services.EmailService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -85,5 +84,9 @@ public class UserService {
         }
         
         return false;
+    }
+
+    public Optional<User> findByEmail(String userEmail) {
+        return userRepository.findByEmail(userEmail);
     }
 }

@@ -12,6 +12,10 @@ public class Certificate {
     @Column(nullable = false)
     private String subjectName;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
     @Column(nullable = false)
     private String issuerName;
 
@@ -146,6 +150,14 @@ public class Certificate {
 
     public String getSansRegex() {
         return sansRegex;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public void setSansRegex(String sansRegex) {

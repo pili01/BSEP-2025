@@ -4,6 +4,7 @@ import com.bsep.pki.dtos.CertificateRequestDto;
 import com.bsep.pki.models.Certificate;
 import com.bsep.pki.models.CertificateTemplate;
 import com.bsep.pki.models.CertificateType;
+import com.bsep.pki.models.User;
 import com.bsep.pki.repositories.CertificateRepository;
 import com.bsep.pki.repositories.CertificateTemplateRepository;
 import jakarta.transaction.Transactional;
@@ -26,11 +27,7 @@ import java.security.*;
 import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -57,7 +54,7 @@ public class CertificateService {
     }
 
     @Transactional
-    public X509Certificate issueCertificate(CertificateRequestDto requestDto) throws Exception {
+    public X509Certificate issueCertificate(CertificateRequestDto requestDto, User user) throws Exception {
         Optional<CertificateTemplate> optionalTemplate = Optional.empty();
         if (requestDto.getTemplateId().isPresent()) {
             optionalTemplate = certificateTemplateRepository.findById(requestDto.getTemplateId().get());
@@ -81,7 +78,7 @@ public class CertificateService {
         KeyPair keyPair = generateKeyPair();
 
         if (requestDto.getType() == CertificateType.ROOT) {
-            return generateRootCertificate(keyPair, requestDto, optionalTemplate);
+            return generateRootCertificate(keyPair, requestDto, optionalTemplate, user);
         } else {
             if (requestDto.getIssuerSerialNumber().isEmpty()) {
                 throw new IllegalArgumentException("Issuer serial number is required for non-root certificates.");
@@ -103,11 +100,11 @@ public class CertificateService {
 
             checkIssuerPolicy(requestDto, optionalTemplate, issuerInfo.get());
 
-            return generateSignedCertificate(keyPair, requestDto, issuerInfo.get(), optionalTemplate);
+            return generateSignedCertificate(keyPair, requestDto, issuerInfo.get(), optionalTemplate, user);
         }
     }
 
-    private X509Certificate generateRootCertificate(KeyPair keyPair, CertificateRequestDto requestDto, Optional<CertificateTemplate> optionalTemplate) throws Exception {
+    private X509Certificate generateRootCertificate(KeyPair keyPair, CertificateRequestDto requestDto, Optional<CertificateTemplate> optionalTemplate, User user) throws Exception {
         X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
 
@@ -160,13 +157,14 @@ public class CertificateService {
         certInfo.setExtendedKeyUsage(extendedKeyUsageString);
         certInfo.setSansRegex(sansRegexString);
         certInfo.setIssuerSerialNumber(null);
+        certInfo.setUser(user);
 
         certificateRepository.save(certInfo);
 
         return certificate;
     }
 
-    private X509Certificate generateSignedCertificate(KeyPair keyPair, CertificateRequestDto requestDto, Certificate issuerInfo, Optional<CertificateTemplate> optionalTemplate) throws Exception {
+    private X509Certificate generateSignedCertificate(KeyPair keyPair, CertificateRequestDto requestDto, Certificate issuerInfo, Optional<CertificateTemplate> optionalTemplate, User user) throws Exception {
         KeyStore issuerKeystore = KeyStore.getInstance("JKS");
         issuerKeystore.load(new FileInputStream(issuerInfo.getKeystorePath()), keystorePassword.toCharArray());
 
@@ -217,6 +215,7 @@ public class CertificateService {
         certInfo.setExtendedKeyUsage(extendedKeyUsageString);
         certInfo.setSansRegex(sansRegexString);
         certInfo.setIssuerSerialNumber(issuerInfo.getSerialNumber());
+        certInfo.setUser(user);
 
         certificateRepository.save(certInfo);
 
