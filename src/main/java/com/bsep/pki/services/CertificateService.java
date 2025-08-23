@@ -24,21 +24,28 @@ import java.security.*;
 import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
+
+import com.bsep.pki.models.User;
+import com.bsep.pki.services.UserService;
 
 @Service
 public class CertificateService {
 
     private static final String KEYSTORE_PATH = "src/main/resources/keystore/";
     private final CertificateRepository certificateRepository;
+    private final UserService userService;
 
     @Value("${pki.keystore.password}")
     private String keystorePassword;
 
     @Autowired
-    public CertificateService(CertificateRepository certificateRepository) {
+    public CertificateService(CertificateRepository certificateRepository, UserService userService) {
         this.certificateRepository = certificateRepository;
+        this.userService = userService;
     }
 
     public KeyPair generateKeyPair() throws NoSuchAlgorithmException {
@@ -240,6 +247,56 @@ public class CertificateService {
                     validateCertificateChain(parentIssuer.get(), currentDepth + 1);
                 }
             }
+        }
+    }
+
+
+
+    public List<Certificate> getAllCertificates() {
+        return certificateRepository.findAll();
+    }
+
+    public List<Certificate> getCertificatesByOrganization(String organization) {
+        return certificateRepository.findByOrganization(organization);
+    }
+
+    public List<Certificate> getEndEntityCertificatesByUserEmail(String userEmail) {
+        Optional<User> userOptional = userService.getUserByEmail(userEmail);
+        if (userOptional.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        User user = userOptional.get();
+        return certificateRepository.findByOrganizationAndType(user.getOrganization(), CertificateType.END_ENTITY);
+    }
+
+
+    public List<Certificate> getCertificatesFromChain(String rootSerialNumber) {
+        List<Certificate> chain = new ArrayList<>();
+        Optional<Certificate> rootCert = certificateRepository.findBySerialNumber(rootSerialNumber);
+        
+        if (rootCert.isEmpty()) {
+            return chain;
+        }
+
+        chain.add(rootCert.get());
+
+        findChildCertificatesWithValidation(rootSerialNumber, chain);
+        
+        return chain;
+    }
+    
+    private void findChildCertificatesWithValidation(String issuerSerialNumber, List<Certificate> chain) {
+        List<Certificate> children = certificateRepository.findByIssuerSerialNumber(issuerSerialNumber);
+        
+        for (Certificate child : children) {
+
+            Optional<Certificate> actualIssuer = certificateRepository.findBySerialNumber(child.getIssuerSerialNumber());
+            if (actualIssuer.isPresent()) {
+                chain.add(child);
+                findChildCertificatesWithValidation(child.getSerialNumber(), chain);
+            }
+
         }
     }
 }

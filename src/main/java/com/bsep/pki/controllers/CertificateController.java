@@ -14,6 +14,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import com.bsep.pki.models.Certificate;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/certificates")
@@ -69,6 +75,72 @@ public class CertificateController {
         } catch (Exception e) {
             e.printStackTrace();
             return new ResponseEntity<>("An error occurred while issuing the certificate.", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @GetMapping("/admin/all")
+    public ResponseEntity<?> getAllCertificates(HttpServletRequest request) {
+        try {
+            String token = getJwtFromRequest(request);
+            if (!StringUtils.hasText(token)) {
+                return new ResponseEntity<>("Authorization token is missing.", HttpStatus.UNAUTHORIZED);
+            }
+
+            UserRole userRole = jwtProvider.getRoleFromToken(token);
+            if (userRole != UserRole.ADMIN) {
+                return new ResponseEntity<>("Only ADMIN can view all certificates.", HttpStatus.FORBIDDEN);
+            }
+
+            return ResponseEntity.ok(certificateService.getAllCertificates());
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error retrieving certificates: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @GetMapping("/ca/chain")
+    public ResponseEntity<?> getCertificateChain(HttpServletRequest request) {
+        try {
+            String token = getJwtFromRequest(request);
+            if (!StringUtils.hasText(token)) {
+                return new ResponseEntity<>("Authorization token is missing.", HttpStatus.UNAUTHORIZED);
+            }
+
+            UserRole userRole = jwtProvider.getRoleFromToken(token);
+            if (userRole != UserRole.ADMIN && userRole != UserRole.CA_USER) {
+                return new ResponseEntity<>("Only ADMIN or CA_USER can view certificate chain.", HttpStatus.FORBIDDEN);
+            }
+
+            String userOrganization = jwtProvider.getOrganizationFromToken(token);
+            
+
+            List<Certificate> allCerts = certificateService.getCertificatesByOrganization(userOrganization);
+            Optional<Certificate> rootCert = allCerts.stream()
+                .filter(cert -> cert.getIssuerSerialNumber() == null)
+                .findFirst();
+            
+            if (rootCert.isEmpty()) {
+                return ResponseEntity.ok(new ArrayList<>());
+            }
+            
+
+            return ResponseEntity.ok(certificateService.getCertificatesFromChain(rootCert.get().getSerialNumber()));
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error retrieving certificate chain: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @GetMapping("/user/my")
+    public ResponseEntity<?> getMyEndEntityCertificates(HttpServletRequest request) {
+        try {
+            String token = getJwtFromRequest(request);
+            if (!StringUtils.hasText(token)) {
+                return new ResponseEntity<>("Authorization token is missing.", HttpStatus.UNAUTHORIZED);
+            }
+
+            String userEmail = jwtProvider.getEmailFromToken(token);
+            return ResponseEntity.ok(certificateService.getEndEntityCertificatesByUserEmail(userEmail));
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error retrieving user certificates: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
