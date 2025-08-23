@@ -40,7 +40,8 @@ public class CertificateService {
     private final KeystoreEncryptionService encryptionService;
 
     @Autowired
-    public CertificateService(CertificateRepository certificateRepository, CertificateTemplateRepository certificateTemplateRepository, KeystoreEncryptionService encryptionService) {
+    public CertificateService(CertificateRepository certificateRepository, CertificateTemplateRepository certificateTemplateRepository,
+                              KeystoreEncryptionService encryptionService) {
         this.certificateRepository = certificateRepository;
         this.certificateTemplateRepository = certificateTemplateRepository;
         this.encryptionService = encryptionService;
@@ -74,10 +75,8 @@ public class CertificateService {
             }
         }
 
-        KeyPair keyPair = generateKeyPair();
-
         if (requestDto.getType() == CertificateType.ROOT) {
-            return generateRootCertificate(keyPair, requestDto, optionalTemplate, targetUser);
+            return generateRootCertificate(requestDto, optionalTemplate, targetUser);
         } else {
             if (requestDto.getIssuerSerialNumber().isEmpty()) {
                 throw new IllegalArgumentException("Issuer serial number is required for non-root certificates.");
@@ -103,11 +102,17 @@ public class CertificateService {
 
             checkIssuerPolicy(requestDto, optionalTemplate, issuerInfo.get());
 
-            return generateSignedCertificate(keyPair, requestDto, issuerInfo.get(), optionalTemplate, issuingUser, targetUser);
+            if (requestDto.getType() == CertificateType.INTERMEDIATE) {
+                return generateIntermediateCertificate(requestDto, issuerInfo.get(), optionalTemplate, targetUser);
+            } else { // END_ENTITY
+                return generateEndEntityCertificate(requestDto, issuerInfo.get(), optionalTemplate, targetUser);
+            }
         }
     }
 
-    private X509Certificate generateRootCertificate(KeyPair keyPair, CertificateRequestDto requestDto, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
+    private X509Certificate generateRootCertificate(CertificateRequestDto requestDto, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
+        KeyPair keyPair = generateKeyPair();
+
         X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
 
@@ -141,12 +146,10 @@ public class CertificateService {
         List<String> keyUsageListFromTemplate = optionalTemplate.map(CertificateTemplate::getKeyUsage)
                 .map(s -> Arrays.asList(s.split(","))).orElse(new ArrayList<>());
         List<String> keyUsageListFromDto = requestDto.getKeyUsage();
-
         List<String> finalKeyUsageList = new ArrayList<>(keyUsageListFromTemplate);
         finalKeyUsageList.addAll(keyUsageListFromDto);
         finalKeyUsageList.add("keyCertSign");
         finalKeyUsageList.add("cRLSign");
-
         String keyUsageString = finalKeyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
         String extendedKeyUsageString = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage)
                 .orElse(requestDto.getExtendedKeyUsage().stream().collect(Collectors.joining(", ")));
@@ -171,50 +174,20 @@ public class CertificateService {
         certInfo.setKeystorePassword(encryptedPassword);
 
         certificateRepository.save(certInfo);
-
         return certificate;
     }
 
-    private X509Certificate generateSignedCertificate(KeyPair keyPair, CertificateRequestDto requestDto, Certificate issuerInfo, Optional<CertificateTemplate> optionalTemplate, User issuingUser, User targetUser) throws Exception {
+    private X509Certificate generateIntermediateCertificate(CertificateRequestDto requestDto, Certificate issuerInfo, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
+        KeyPair keyPair = generateKeyPair();
 
-        System.out.println("DEBUG: Pokušaj izdavanja sertifikata...");
-        System.out.println("DEBUG: Izdavalac sertifikata (issuer): " + issuerInfo.getSerialNumber());
-
-        String encryptedPassword = issuerInfo.getKeystorePassword();
-        System.out.println("DEBUG: Šifrovana lozinka izdavaoca iz baze: " + encryptedPassword);
-
-        if (encryptedPassword == null) {
-            throw new IllegalArgumentException("Keystore password is null. This certificate cannot be an issuer.");
-        }
-
-        String issuerKeystorePassword = encryptionService.decrypt(encryptedPassword, issuerInfo.getUser().getEncryptionKey());
-        System.out.println("DEBUG: Dekriptovana lozinka izdavaoca za Keystore: " + issuerKeystorePassword);
-
+        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(), issuerInfo.getUser().getEncryptionKey());
         KeyStore issuerKeystore = KeyStore.getInstance("JKS");
-        String keystorePath = issuerInfo.getKeystorePath();
-        System.out.println("DEBUG: Putanja do Keystore-a: " + keystorePath);
-
-        File keystoreFile = new File(keystorePath);
-        if (!keystoreFile.exists()) {
-            throw new IllegalArgumentException("Keystore file does not exist at path: " + keystorePath);
-        }
-
-        try (FileInputStream fis = new FileInputStream(keystoreFile)) {
+        try (FileInputStream fis = new FileInputStream(issuerInfo.getKeystorePath())) {
             issuerKeystore.load(fis, issuerKeystorePassword.toCharArray());
-            System.out.println("DEBUG: Keystore izdavaoca uspešno učitan! ✅");
-        } catch (IOException e) {
-            System.err.println("DEBUG: NEUSPEŠNO UČITAVANJE KEJSTORA! Proverite lozinku.");
-            System.err.println("DEBUG: Originalna greška: " + e.getMessage());
-            throw e;
         }
 
         PrivateKey issuerPrivateKey = (PrivateKey) issuerKeystore.getKey(issuerInfo.getAlias(), issuerKeystorePassword.toCharArray());
-        X509Certificate issuerCertificate = (X509Certificate) issuerKeystore.getCertificate(issuerInfo.getAlias());
-
-        if (issuerPrivateKey == null) {
-            throw new Exception("Private key for alias '" + issuerInfo.getAlias() + "' not found or could not be retrieved from the keystore.");
-        }
-        System.out.println("DEBUG: Privatni ključ izdavaoca uspešno dobijen! ✅");
+        java.security.cert.Certificate[] issuerChain = issuerKeystore.getCertificateChain(issuerInfo.getAlias());
 
         X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
         X500Name issuerName = new X500Name(issuerInfo.getSubjectName());
@@ -233,31 +206,25 @@ public class CertificateService {
                 keyPair.getPublic()
         );
 
-        boolean isCA = requestDto.getType() == CertificateType.INTERMEDIATE || requestDto.getType() == CertificateType.ROOT;
-        addExtensionsToBuilder(certBuilder, requestDto, optionalTemplate, isCA);
-
+        addExtensionsToBuilder(certBuilder, requestDto, optionalTemplate, true);
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(issuerPrivateKey);
         X509Certificate certificate = new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
 
-        java.security.cert.Certificate[] issuerChain = issuerKeystore.getCertificateChain(issuerInfo.getAlias());
+        java.security.cert.Certificate[] newChain = new java.security.cert.Certificate[issuerChain.length + 1];
+        newChain[0] = certificate;
+        System.arraycopy(issuerChain, 0, newChain, 1, issuerChain.length);
 
-        String keystoreToSaveToPath = KEYSTORE_PATH + requestDto.getOrganization().replace(" ", "_") + ".jks";
+        // Keystore lozinka ostaje ista za celu organizaciju
+        String keystorePassword = issuerKeystorePassword;
 
-        saveToKeystore(certificate, keyPair.getPrivate(), requestDto.getCommonName(), issuerChain, keystoreToSaveToPath, issuerKeystorePassword);
-        System.out.println("DEBUG: Novi sertifikat sačuvana u Keystore-u! ✅");
+        String keystorePath = KEYSTORE_PATH + requestDto.getOrganization().replace(" ", "_") + ".jks";
+        saveToKeystore(certificate, keyPair.getPrivate(), requestDto.getCommonName(), newChain, keystorePath, keystorePassword);
 
-        List<String> keyUsageListFromTemplate = optionalTemplate.map(CertificateTemplate::getKeyUsage)
-                .map(s -> Arrays.asList(s.split(","))).orElse(new ArrayList<>());
-        List<String> keyUsageListFromDto = requestDto.getKeyUsage();
-
-        List<String> finalKeyUsageList = new ArrayList<>(keyUsageListFromTemplate);
-        finalKeyUsageList.addAll(keyUsageListFromDto);
-        if (requestDto.getType() == CertificateType.INTERMEDIATE) {
-            finalKeyUsageList.add("keyCertSign");
-            finalKeyUsageList.add("cRLSign");
-        }
+        List<String> finalKeyUsageList = new ArrayList<>(optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(new ArrayList<>()));
+        finalKeyUsageList.addAll(requestDto.getKeyUsage());
+        finalKeyUsageList.add("keyCertSign");
+        finalKeyUsageList.add("cRLSign");
         String keyUsageString = finalKeyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
-
         String extendedKeyUsageString = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage)
                 .orElse(requestDto.getExtendedKeyUsage().stream().collect(Collectors.joining(", ")));
         String sansRegexString = optionalTemplate.map(CertificateTemplate::getSansRegex).orElse(null);
@@ -269,34 +236,87 @@ public class CertificateService {
         certInfo.setStartDate(now);
         certInfo.setEndDate(now.plusDays(requestDto.getValidityInDays()));
         certInfo.setRevoked(false);
-        certInfo.setType(requestDto.getType());
+        certInfo.setType(CertificateType.INTERMEDIATE);
         certInfo.setOrganization(requestDto.getOrganization());
-        certInfo.setKeystorePath(keystoreToSaveToPath);
+        certInfo.setKeystorePath(keystorePath);
         certInfo.setAlias(requestDto.getCommonName());
         certInfo.setKeyUsage(keyUsageString);
         certInfo.setExtendedKeyUsage(extendedKeyUsageString);
         certInfo.setSansRegex(sansRegexString);
         certInfo.setIssuerSerialNumber(issuerInfo.getSerialNumber());
         certInfo.setUser(targetUser);
-
-        if (requestDto.getType() == CertificateType.INTERMEDIATE) {
-            certInfo.setKeystorePassword(issuerInfo.getKeystorePassword());
-        } else {
-            certInfo.setKeystorePassword(null);
-        }
-        System.out.println("DEBUG: Vrednost keystorePassword za novi sertifikat u bazi: " + certInfo.getKeystorePassword());
-        System.out.println("DEBUG: Vrednost issuerSerialNumber za novi sertifikat: " + certInfo.getIssuerSerialNumber());
+        certInfo.setKeystorePassword(encryptionService.encrypt(keystorePassword, targetUser.getEncryptionKey()));
 
         certificateRepository.save(certInfo);
-        System.out.println("DEBUG: Podaci o sertifikatu uspešno sačuvani u bazi. ✅");
+        return certificate;
+    }
 
+    private X509Certificate generateEndEntityCertificate(CertificateRequestDto requestDto, Certificate issuerInfo, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
+        KeyPair keyPair = generateKeyPair();
+
+        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(), issuerInfo.getUser().getEncryptionKey());
+        KeyStore issuerKeystore = KeyStore.getInstance("JKS");
+        try (FileInputStream fis = new FileInputStream(issuerInfo.getKeystorePath())) {
+            issuerKeystore.load(fis, issuerKeystorePassword.toCharArray());
+        }
+
+        PrivateKey issuerPrivateKey = (PrivateKey) issuerKeystore.getKey(issuerInfo.getAlias(), issuerKeystorePassword.toCharArray());
+
+        X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
+        X500Name issuerName = new X500Name(issuerInfo.getSubjectName());
+        BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
+
+        LocalDateTime now = LocalDateTime.now();
+        Date startDate = Date.from(now.atZone(ZoneId.systemDefault()).toInstant());
+        Date endDate = Date.from(now.plusDays(requestDto.getValidityInDays()).atZone(ZoneId.systemDefault()).toInstant());
+
+        X509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
+                issuerName,
+                serialNumber,
+                startDate,
+                endDate,
+                subjectName,
+                keyPair.getPublic()
+        );
+
+        addExtensionsToBuilder(certBuilder, requestDto, optionalTemplate, false);
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(issuerPrivateKey);
+        X509Certificate certificate = new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
+
+        String keystorePath = KEYSTORE_PATH + issuerInfo.getOrganization().replace(" ", "_") + ".jks";
+        saveAsTrustedCertificate(certificate, keystorePath, issuerKeystorePassword);
+
+        List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getKeyUsage());
+        String keyUsageString = keyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
+        String extendedKeyUsageString = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage)
+                .orElse(requestDto.getExtendedKeyUsage().stream().collect(Collectors.joining(", ")));
+        String sansRegexString = optionalTemplate.map(CertificateTemplate::getSansRegex).orElse(null);
+
+        Certificate certInfo = new Certificate();
+        certInfo.setSerialNumber(certificate.getSerialNumber().toString());
+        certInfo.setSubjectName(certificate.getSubjectX500Principal().getName());
+        certInfo.setIssuerName(certificate.getIssuerX500Principal().getName());
+        certInfo.setStartDate(now);
+        certInfo.setEndDate(now.plusDays(requestDto.getValidityInDays()));
+        certInfo.setRevoked(false);
+        certInfo.setType(CertificateType.END_ENTITY);
+        certInfo.setOrganization(requestDto.getOrganization());
+        certInfo.setKeystorePath(keystorePath);
+        certInfo.setAlias(requestDto.getCommonName());
+        certInfo.setKeyUsage(keyUsageString);
+        certInfo.setExtendedKeyUsage(extendedKeyUsageString);
+        certInfo.setSansRegex(sansRegexString);
+        certInfo.setIssuerSerialNumber(issuerInfo.getSerialNumber());
+        certInfo.setUser(targetUser);
+        certInfo.setKeystorePassword(null);
+
+        certificateRepository.save(certInfo);
         return certificate;
     }
 
     private void addExtensionsToBuilder(X509v3CertificateBuilder certBuilder, CertificateRequestDto requestDto, Optional<CertificateTemplate> optionalTemplate, boolean isCA) throws Exception {
         List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getKeyUsage());
         List<String> extendedKeyUsageList = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getExtendedKeyUsage());
-
         Optional<String> sansRegex = optionalTemplate.map(CertificateTemplate::getSansRegex);
 
         certBuilder.addExtension(Extension.basicConstraints, true, new BasicConstraints(isCA));
@@ -413,11 +433,29 @@ public class CertificateService {
             keyStore.load(null, passwordChars);
         }
 
-        if (certificate.getBasicConstraints() != -1) {
-            keyStore.setKeyEntry(alias, privateKey, passwordChars, issuerChain);
-        } else {
-            keyStore.setCertificateEntry(alias, certificate);
+        keyStore.setKeyEntry(alias, privateKey, passwordChars, issuerChain);
+
+        try (FileOutputStream fos = new FileOutputStream(keystorePath)) {
+            keyStore.store(fos, passwordChars);
         }
+    }
+
+    private void saveAsTrustedCertificate(X509Certificate certificate, String keystorePath, String keystorePassword) throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("JKS");
+        char[] passwordChars = keystorePassword.toCharArray();
+
+        File keystoreFile = new File(keystorePath);
+        if (!keystoreFile.exists()) {
+            throw new IllegalArgumentException("Keystore for organization does not exist.");
+        }
+
+        try (FileInputStream fis = new FileInputStream(keystoreFile)) {
+            keyStore.load(fis, passwordChars);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Invalid keystore password.", e);
+        }
+
+        keyStore.setCertificateEntry(certificate.getSerialNumber().toString(), certificate);
 
         try (FileOutputStream fos = new FileOutputStream(keystorePath)) {
             keyStore.store(fos, passwordChars);
