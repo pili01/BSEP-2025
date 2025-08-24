@@ -52,6 +52,13 @@ public class UserService {
         return user;
     }
 
+
+    public Optional<User> getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
+
+
     public User registerAdmin(RegistrationDto registrationDto) throws NoSuchAlgorithmException {
         if (userRepository.findByEmail(registrationDto.getEmail()).isPresent()) {
             throw new RuntimeException("Email is already in use.");
