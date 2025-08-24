@@ -3,23 +3,21 @@ package com.bsep.pki.dtos;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 public class CsrRequestDto {
 
     @NotBlank(message = "CSR PEM content must not be blank")
-    private String csrPemContent;  // PEM sadržaj CSR-a
+    private String csrPemContent;
     
     @NotBlank(message = "Common name must not be blank")
-    private String commonName;  // Common Name iz CSR-a
+    private String commonName;
     
     @NotBlank(message = "Target user email must not be blank")
     @Email(message = "Target user email must be valid")
     private String targetUserEmail;
     
-    private Optional<Long> templateId = Optional.empty();  // Šablon (opciono)
+    private Optional<Long> templateId = Optional.empty();
     
     @Positive(message = "Validity in days must be a positive number")
     private long validityInDays;
@@ -28,12 +26,13 @@ public class CsrRequestDto {
     private String organization;
     
     @NotBlank(message = "CA issuer serial number must not be blank")
-    private String caIssuerSerialNumber;  // Koji CA potpisuje
+    private String caIssuerSerialNumber;
     
-    private List<String> keyUsage = new ArrayList<>();
-    private List<String> extendedKeyUsage = new ArrayList<>();
+    private String keyUsage;
+    private String extendedKeyUsage;
     
     private String status = "PENDING"; // PENDING, APPROVED, REJECTED
+
 
     public CsrRequestDto() {}
 
@@ -94,19 +93,19 @@ public class CsrRequestDto {
         this.caIssuerSerialNumber = caIssuerSerialNumber;
     }
 
-    public List<String> getKeyUsage() {
+    public String getKeyUsage() {
         return keyUsage;
     }
 
-    public void setKeyUsage(List<String> keyUsage) {
+    public void setKeyUsage(String keyUsage) {
         this.keyUsage = keyUsage;
     }
 
-    public List<String> getExtendedKeyUsage() {
+    public String getExtendedKeyUsage() {
         return extendedKeyUsage;
     }
 
-    public void setExtendedKeyUsage(List<String> extendedKeyUsage) {
+    public void setExtendedKeyUsage(String extendedKeyUsage) {
         this.extendedKeyUsage = extendedKeyUsage;
     }
     
@@ -117,4 +116,5 @@ public class CsrRequestDto {
     public void setStatus(String status) {
         this.status = status;
     }
+
 }
