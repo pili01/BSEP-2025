@@ -3,12 +3,8 @@ package com.bsep.pki.services;
 import com.bsep.pki.dtos.CertificateRequestDto;
 import com.bsep.pki.dtos.CsrRequestDto;
 import com.bsep.pki.dtos.CsrResponseDto;
+import com.bsep.pki.models.*;
 import com.bsep.pki.models.Certificate;
-import com.bsep.pki.models.CertificateTemplate;
-import com.bsep.pki.models.CertificateType;
-import com.bsep.pki.models.User;
-import com.bsep.pki.models.CsrRequest;
-import com.bsep.pki.models.UserRole;
 import com.bsep.pki.repositories.CertificateRepository;
 import com.bsep.pki.repositories.CertificateTemplateRepository;
 import com.bsep.pki.repositories.CsrRequestRepository;
@@ -23,7 +19,9 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemReader;
+
 import java.io.StringReader;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -53,12 +51,12 @@ public class CertificateService {
 
     @Autowired
     public CertificateService(CertificateRepository certificateRepository, CertificateTemplateRepository certificateTemplateRepository,
-                              KeystoreEncryptionService encryptionService, CsrRequestRepository csrRequestRepository,UserService userService) {
+                              KeystoreEncryptionService encryptionService, CsrRequestRepository csrRequestRepository, UserService userService) {
         this.certificateRepository = certificateRepository;
         this.certificateTemplateRepository = certificateTemplateRepository;
         this.encryptionService = encryptionService;
         this.csrRequestRepository = csrRequestRepository;
-        this.userService=userService;
+        this.userService = userService;
     }
 
     public KeyPair generateKeyPair() throws NoSuchAlgorithmException {
@@ -421,7 +419,7 @@ public class CertificateService {
         certBuilder.addExtension(Extension.cRLDistributionPoints, false, new CRLDistPoint(
                 new DistributionPoint[]{new DistributionPoint(
                         new DistributionPointName(
-                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, "http://tvoj-domen/api/crl"))
+                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, "https://localhost/api/crl"))
                         ), null, null
                 )}
         ));
@@ -537,15 +535,6 @@ public class CertificateService {
     }
 
 
-
-
-
-
-
-
-
-
-
     public List<Certificate> getAllCertificates() {
         return certificateRepository.findAll();
     }
@@ -595,20 +584,19 @@ public class CertificateService {
     }
 
 
-
-    ///////////////////////////////////////    CSR       ///////////////////////////////////////////////////
+    /// ////////////////////////////////////    CSR       ///////////////////////////////////////////////////
 
     @Transactional
     public CsrRequest uploadCsr(CsrRequestDto csrDto, User uploadingUser, User targetUser) throws Exception {
 
         PKCS10CertificationRequest csr = parseCsrFromPem(csrDto.getCsrPemContent());
-        
+
 
         validateCsrContent(csr, csrDto);
         validateCaCompatibilityForUpload(csrDto, uploadingUser);
 
         CsrRequest csrRequest = new CsrRequest();
-        String normalizedCsrContent=normalizePemContent((csrDto.getCsrPemContent()));
+        String normalizedCsrContent = normalizePemContent((csrDto.getCsrPemContent()));
         csrRequest.setCsrPemContent(normalizedCsrContent);
         csrRequest.setCommonName(csrDto.getCommonName());
         csrRequest.setOrganization(csrDto.getOrganization());
@@ -620,7 +608,7 @@ public class CertificateService {
         csrRequest.setCaIssuerSerialNumber(csrDto.getCaIssuerSerialNumber());
         csrRequest.setKeyUsage(csrDto.getKeyUsage() != null ? csrDto.getKeyUsage() : "");
         csrRequest.setExtendedKeyUsage(csrDto.getExtendedKeyUsage() != null ? csrDto.getExtendedKeyUsage() : "");
-        
+
 
         PublicKey publicKey = getPublicKeyFromCsr(csr);
         csrRequest.setPublicKeyAlgorithm(publicKey.getAlgorithm());
@@ -628,16 +616,16 @@ public class CertificateService {
             java.security.interfaces.RSAPublicKey rsaKey = (java.security.interfaces.RSAPublicKey) publicKey;
             csrRequest.setKeyLength(rsaKey.getModulus().bitLength());
         }
-        
+
         CsrRequest savedRequest = csrRequestRepository.save(csrRequest);
-        
+
         System.out.println("CSR saved to database with ID: " + savedRequest.getId());
         return savedRequest;
     }
 
     @Transactional
     public X509Certificate signCsrAndIssueCertificate(CsrRequestDto csrDto, User issuingUser, User targetUser) throws Exception {
-        
+
 
         PKCS10CertificationRequest csr = parseCsrFromPem(csrDto.getCsrPemContent());
 
@@ -650,23 +638,23 @@ public class CertificateService {
         X509Certificate certificate = issueCertificateFromCsr(csr, csrDto, caCertificate, issuingUser, targetUser);
 
         updateCsrRequestStatus(csrDto, issuingUser);
-        
+
         return certificate;
     }
 
     private PKCS10CertificationRequest parseCsrFromPem(String pemContent) throws Exception {
         try (StringReader stringReader = new StringReader(pemContent);
              PemReader pemReader = new PemReader(stringReader)) {
-            
+
             PemObject pemObject = pemReader.readPemObject();
             if (pemObject == null) {
                 throw new IllegalArgumentException("Invalid PEM content: no PEM object found");
             }
-            
+
             if (!pemObject.getType().equals("CERTIFICATE REQUEST")) {
                 throw new IllegalArgumentException("Invalid PEM content: expected CERTIFICATE REQUEST, got " + pemObject.getType());
             }
-            
+
             return new PKCS10CertificationRequest(pemObject.getContent());
         } catch (Exception e) {
             throw new IllegalArgumentException("Failed to parse CSR from PEM: " + e.getMessage(), e);
@@ -676,7 +664,7 @@ public class CertificateService {
     private void validateCsrContent(PKCS10CertificationRequest csr, CsrRequestDto csrDto) throws Exception {
         X500Name csrSubject = csr.getSubject();
         String csrCommonName = extractCommonNameFromX500Name(csrSubject);
-        
+
         if (!csrCommonName.equals(csrDto.getCommonName())) {
             throw new IllegalArgumentException("CSR Common Name '" + csrCommonName + "' does not match requested Common Name '" + csrDto.getCommonName() + "'");
         }
@@ -694,7 +682,7 @@ public class CertificateService {
         if (!csrPublicKey.getAlgorithm().equals("RSA")) {
             throw new IllegalArgumentException("Only RSA public keys are supported, got: " + csrPublicKey.getAlgorithm());
         }
-        
+
         if (csrPublicKey instanceof java.security.interfaces.RSAPublicKey) {
             java.security.interfaces.RSAPublicKey rsaKey = (java.security.interfaces.RSAPublicKey) csrPublicKey;
             if (rsaKey.getModulus().bitLength() < 2048) {
@@ -730,13 +718,13 @@ public class CertificateService {
         if (caOptional.isEmpty()) {
             throw new IllegalArgumentException("CA certificate with serial number " + caSerialNumber + " not found");
         }
-        
+
         Certificate caCertificate = caOptional.get();
 
         if (!isCertificateValid(caCertificate)) {
             throw new IllegalArgumentException("CA certificate is not valid");
         }
-        
+
         if (isCertificateRevoked(caCertificate)) {
             throw new IllegalArgumentException("CA certificate has been revoked");
         }
@@ -744,7 +732,7 @@ public class CertificateService {
         if (caCertificate.getType() == CertificateType.END_ENTITY) {
             throw new IllegalArgumentException("Cannot issue certificate from END_ENTITY certificate");
         }
-        
+
         return caCertificate;
     }
 
@@ -753,37 +741,37 @@ public class CertificateService {
         if (!caCertificate.getUser().equals(issuingUser)) {
             throw new SecurityException("You are not authorized to use this certificate as an issuer");
         }
-        
+
 
         if (!caCertificate.getOrganization().equals(csrDto.getOrganization())) {
             throw new IllegalArgumentException("CA organization '" + caCertificate.getOrganization() + "' does not match CSR organization '" + csrDto.getOrganization() + "'");
         }
-        
+
 
         validateCertificateChain(caCertificate, 1);
     }
-    
+
 
     private void validateCaCompatibilityForUpload(CsrRequestDto csrDto, User uploadingUser) throws Exception {
-        
+
 
         Optional<Certificate> caOptional = certificateRepository.findBySerialNumber(csrDto.getCaIssuerSerialNumber());
         if (caOptional.isEmpty()) {
             throw new IllegalArgumentException("CA certificate with serial number " + csrDto.getCaIssuerSerialNumber() + " not found");
         }
-        
+
         Certificate caCertificate = caOptional.get();
-        
+
 
         if (!caCertificate.getOrganization().equals(uploadingUser.getOrganization())) {
-            throw new IllegalArgumentException("You can only use CA from your own organization. Your org: " + 
-                uploadingUser.getOrganization() + ", CA org: " + caCertificate.getOrganization());
+            throw new IllegalArgumentException("You can only use CA from your own organization. Your org: " +
+                    uploadingUser.getOrganization() + ", CA org: " + caCertificate.getOrganization());
         }
 
         if (!isCertificateValid(caCertificate)) {
             throw new IllegalArgumentException("CA certificate is not valid (expired or not yet active)");
         }
-        
+
         if (isCertificateRevoked(caCertificate)) {
             throw new IllegalArgumentException("CA certificate has been revoked");
         }
@@ -791,45 +779,45 @@ public class CertificateService {
         if (caCertificate.getType() == CertificateType.END_ENTITY) {
             throw new IllegalArgumentException("Cannot use END_ENTITY certificate as CA. Only ROOT and INTERMEDIATE certificates can be used.");
         }
-        
+
 
         long caValidityDays = java.time.Duration.between(caCertificate.getStartDate(), caCertificate.getEndDate()).toDays();
         if (csrDto.getValidityInDays() > caValidityDays) {
-            throw new IllegalArgumentException("Certificate validity (" + csrDto.getValidityInDays() + 
-                " days) cannot exceed CA validity (" + caValidityDays + " days). Please choose a shorter validity period.");
+            throw new IllegalArgumentException("Certificate validity (" + csrDto.getValidityInDays() +
+                    " days) cannot exceed CA validity (" + caValidityDays + " days). Please choose a shorter validity period.");
         }
-        
-        System.out.println("CA compatibility validation passed for CA: " + caCertificate.getSubjectName() + 
-            " with validity: " + caValidityDays + " days");
+
+        System.out.println("CA compatibility validation passed for CA: " + caCertificate.getSubjectName() +
+                " with validity: " + caValidityDays + " days");
     }
 
-    private X509Certificate issueCertificateFromCsr(PKCS10CertificationRequest csr, CsrRequestDto csrDto, 
-                                                   Certificate caCertificate, User issuingUser, User targetUser) throws Exception {
-        
+    private X509Certificate issueCertificateFromCsr(PKCS10CertificationRequest csr, CsrRequestDto csrDto,
+                                                    Certificate caCertificate, User issuingUser, User targetUser) throws Exception {
+
 
         String caKeystorePassword = encryptionService.decrypt(caCertificate.getKeystorePassword(), caCertificate.getUser().getEncryptionKey());
         KeyStore caKeystore = KeyStore.getInstance("JKS");
-        
+
         try (FileInputStream fis = new FileInputStream(caCertificate.getKeystorePath())) {
             caKeystore.load(fis, caKeystorePassword.toCharArray());
         }
-        
+
         PrivateKey caPrivateKey = (PrivateKey) caKeystore.getKey(caCertificate.getAlias(), caKeystorePassword.toCharArray());
         java.security.cert.Certificate[] caChain = caKeystore.getCertificateChain(caCertificate.getAlias());
-        
+
 
         X500Name subjectName = csr.getSubject();
         X500Name issuerName = new X500Name(caCertificate.getSubjectName());
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
-        
+
 
         PublicKey csrPublicKey = getPublicKeyFromCsr(csr);
-        
+
 
         LocalDateTime now = LocalDateTime.now();
         Date startDate = Date.from(now.atZone(ZoneId.systemDefault()).toInstant());
         Date endDate = Date.from(now.plusDays(csrDto.getValidityInDays()).atZone(ZoneId.systemDefault()).toInstant());
-        
+
         X509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
                 issuerName,
                 serialNumber,
@@ -838,32 +826,32 @@ public class CertificateService {
                 subjectName,
                 csrPublicKey
         );
-        
 
-        Optional<CertificateTemplate> optionalTemplate = csrDto.getTemplateId().isPresent() ? 
-            certificateTemplateRepository.findById(csrDto.getTemplateId().get()) : Optional.empty();
-        
+
+        Optional<CertificateTemplate> optionalTemplate = csrDto.getTemplateId().isPresent() ?
+                certificateTemplateRepository.findById(csrDto.getTemplateId().get()) : Optional.empty();
+
         addExtensionsToBuilderForCsr(certBuilder, csrDto, optionalTemplate, false);
-        
+
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(caPrivateKey);
         X509Certificate certificate = new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
-        
+
 
         String keystorePath = caCertificate.getKeystorePath();
         saveAsTrustedCertificate(certificate, keystorePath, caKeystorePassword);
-        
+
 
         List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage)
                 .map(s -> Arrays.asList(s.split(",")))
                 .orElse(csrDto.getKeyUsage() != null ? Arrays.asList(csrDto.getKeyUsage().split(",")) : new ArrayList<>());
         String keyUsageString = keyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
-        
+
         String extendedKeyUsageString = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage)
                 .orElse(csrDto.getExtendedKeyUsage() != null ? csrDto.getExtendedKeyUsage() : "");
-        
+
         String sansRegexString = optionalTemplate.map(CertificateTemplate::getSansRegex).orElse(null);
-        
+
         Certificate certInfo = new Certificate();
         certInfo.setSerialNumber(certificate.getSerialNumber().toString());
         certInfo.setSubjectName(certificate.getSubjectX500Principal().getName());
@@ -881,7 +869,7 @@ public class CertificateService {
         certInfo.setIssuerSerialNumber(caCertificate.getSerialNumber());
         certInfo.setUser(targetUser);
         certInfo.setKeystorePassword(null); // End entity nema keystore password
-        
+
         certificateRepository.save(certInfo);
         return certificate;
     }
@@ -889,43 +877,42 @@ public class CertificateService {
     public List<Map<String, String>> getAvailableCaCertificates() {
         List<Certificate> allCertificates = certificateRepository.findAll();
         List<Map<String, String>> caList = new ArrayList<>();
-        
+
         for (Certificate cert : allCertificates) {
-            if ((cert.getType() == CertificateType.ROOT || cert.getType() == CertificateType.INTERMEDIATE) 
-                && !cert.isRevoked() && isCertificateValid(cert)) {
-                
+            if ((cert.getType() == CertificateType.ROOT || cert.getType() == CertificateType.INTERMEDIATE)
+                    && !cert.isRevoked() && isCertificateValid(cert)) {
+
                 Map<String, String> caInfo = new HashMap<>();
                 caInfo.put("serialNumber", cert.getSerialNumber());
                 caInfo.put("subjectName", cert.getSubjectName());
                 caInfo.put("organization", cert.getOrganization());
                 caInfo.put("type", cert.getType().name());
                 caInfo.put("validityDays", String.valueOf(java.time.Duration.between(cert.getStartDate(), cert.getEndDate()).toDays()));
-                
+
                 caList.add(caInfo);
             }
         }
-        
+
         return caList;
     }
-    
 
-    
+
     public List<CsrResponseDto> getPendingCsrRequests(String organization) {
         List<CsrRequest> pendingRequests = csrRequestRepository.findByStatusAndOrganizationOrderByUploadDateDesc("PENDING", organization);
 
         return pendingRequests.stream()
-            .map(this::convertToResponseDto)
-            .collect(Collectors.toList());
+                .map(this::convertToResponseDto)
+                .collect(Collectors.toList());
     }
-    
+
     public List<CsrResponseDto> getCsrRequestsByUser(User user) {
         List<CsrRequest> userRequests = csrRequestRepository.findByUploadingUser(user);
-        
+
         return userRequests.stream()
-            .map(this::convertToResponseDto)
-            .collect(Collectors.toList());
+                .map(this::convertToResponseDto)
+                .collect(Collectors.toList());
     }
-    
+
     public CsrResponseDto getCsrRequestById(Long id) {
         Optional<CsrRequest> optionalRequest = csrRequestRepository.findById(id);
         if (optionalRequest.isPresent()) {
@@ -933,19 +920,19 @@ public class CertificateService {
         }
         throw new IllegalArgumentException("CSR request with ID " + id + " not found");
     }
-    
+
     @Transactional
     public void rejectCsrRequest(Long csrId, String reason, User rejectingUser) {
         Optional<CsrRequest> optionalRequest = csrRequestRepository.findById(csrId);
         if (optionalRequest.isPresent()) {
             CsrRequest csrRequest = optionalRequest.get();
-            
 
-            if (!rejectingUser.getRole().equals(UserRole.ADMIN) && 
-                !rejectingUser.getRole().equals(UserRole.CA_USER)) {
+
+            if (!rejectingUser.getRole().equals(UserRole.ADMIN) &&
+                    !rejectingUser.getRole().equals(UserRole.CA_USER)) {
                 throw new SecurityException("Only ADMIN or CA_USER can reject CSR requests");
             }
-            
+
 
             if (!csrRequest.getOrganization().equals(rejectingUser.getOrganization())) {
                 throw new SecurityException("You can only reject CSR requests from your own organization");
@@ -954,17 +941,17 @@ public class CertificateService {
             if (csrRequest.getStatus().equals("APPROVED")) {
                 throw new SecurityException("Cannot reject an approved CSR request");
             }
-            
+
             csrRequest.setStatus("REJECTED");
             csrRequest.setRejectionReason(reason);
             csrRequest.setApprovalDate(LocalDateTime.now());
-            
+
             csrRequestRepository.save(csrRequest);
         } else {
             throw new IllegalArgumentException("CSR request with ID " + csrId + " not found");
         }
     }
-    
+
     private CsrResponseDto convertToResponseDto(CsrRequest csrRequest) {
         CsrResponseDto dto = new CsrResponseDto();
         dto.setId(csrRequest.getId());
@@ -982,10 +969,9 @@ public class CertificateService {
         dto.setExtendedKeyUsage(csrRequest.getExtendedKeyUsage() != null ? csrRequest.getExtendedKeyUsage() : "");
         dto.setValidityInDays(csrRequest.getValidityInDays());
         dto.setCaIssuerSerialNumber(csrRequest.getCaIssuerSerialNumber());
-        
+
         return dto;
     }
-    
 
 
     private void updateCsrRequestStatus(CsrRequestDto csrDto, User issuingUser) {
@@ -1102,7 +1088,7 @@ public class CertificateService {
         certBuilder.addExtension(Extension.cRLDistributionPoints, false, new CRLDistPoint(
                 new DistributionPoint[]{new DistributionPoint(
                         new DistributionPointName(
-                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, "http://tvoj-domen/api/crl"))
+                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, "https://localhost/api/crl"))
                         ), null, null
                 )}
         ));
@@ -1112,6 +1098,40 @@ public class CertificateService {
             sanNames.add(new GeneralName(GeneralName.dNSName, "www.example.com"));
             sanNames.add(new GeneralName(GeneralName.dNSName, "sub.example.com"));
             certBuilder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(sanNames.toArray(new GeneralName[0])));
+        }
+    }
+
+    public void revokeCertificate(String serialNumber, RevokedReason reason) {
+        Optional<Certificate> certOptional = certificateRepository.findBySerialNumber(serialNumber);
+        if (certOptional.isEmpty()) {
+            throw new IllegalArgumentException("Certificate with serial number " + serialNumber + " not found");
+        }
+        Certificate certificate = certOptional.get();
+        certificate.setRevoked(true);
+        certificate.setRevokedReason(reason);
+        certificate.setRevokedAt(LocalDateTime.now());
+        certificateRepository.save(certificate);
+    }
+
+    public AbstractMap.SimpleEntry<X509Certificate, PrivateKey> getRootCertificateWithPk() {
+        Optional<Certificate> rootCertOpt = certificateRepository.findAll().stream()
+                .filter(cert -> cert.getType() == CertificateType.ROOT)
+                .findFirst();
+        if (rootCertOpt.isEmpty()) {
+            return null;
+        }
+        Certificate rootCert = rootCertOpt.get();
+        try {
+            String keystorePassword = encryptionService.decrypt(rootCert.getKeystorePassword(), rootCert.getUser().getEncryptionKey());
+            KeyStore keyStore = KeyStore.getInstance("JKS");
+            try (FileInputStream fis = new FileInputStream(rootCert.getKeystorePath())) {
+                keyStore.load(fis, keystorePassword.toCharArray());
+            }
+            PrivateKey privateKey = (PrivateKey) keyStore.getKey(rootCert.getAlias(), keystorePassword.toCharArray());
+            X509Certificate cert = (X509Certificate) keyStore.getCertificate(rootCert.getAlias());
+            return new AbstractMap.SimpleEntry<>(cert, privateKey);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Root certificate not found");
         }
     }
 }

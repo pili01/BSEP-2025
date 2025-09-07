@@ -1,20 +1,34 @@
 package com.bsep.pki.config;
 
+import com.bsep.pki.filters.JwtAuthentificationFilter;
 import com.bsep.pki.filters.UserActivityFilter;
+import com.bsep.pki.services.CustomUserDetailsService;
+import com.bsep.pki.utils.JwtProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
 public class SecurityConfig {
 
     private final UserActivityFilter userActivityFilter;
+
+    @Autowired
+    public JwtProvider token;
+
+    @Autowired
+    public CustomUserDetailsService customUserDetailsService;
 
     public SecurityConfig(UserActivityFilter userActivityFilter) {
         this.userActivityFilter = userActivityFilter;
@@ -33,9 +47,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/certificates/**").permitAll()
                         .requestMatchers("/api/admin/**").permitAll()
+                        .requestMatchers("/api/crl").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(userActivityFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(userActivityFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new JwtAuthentificationFilter(token, customUserDetailsService),
+                        BasicAuthenticationFilter.class);
         return http.build();
     }
 }

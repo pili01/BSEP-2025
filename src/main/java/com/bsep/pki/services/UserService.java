@@ -46,7 +46,7 @@ public class UserService {
 
         user = userRepository.save(user);
 
-        String verificationLink = "http://localhost:8080/api/auth/verify?email=" + user.getEmail();
+        String verificationLink = "https://localhost:8080/api/auth/verify?email=" + user.getEmail();
         emailService.sendVerificationEmail(registrationDto, verificationLink);
 
         return user;

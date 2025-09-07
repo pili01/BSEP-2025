@@ -1,8 +1,12 @@
 package com.bsep.pki.models;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
+@Data
+@NoArgsConstructor
 @Table(name = "certificate_templates")
 public class CertificateTemplate {
 
@@ -31,70 +35,4 @@ public class CertificateTemplate {
     @Column
     private String extendedKeyUsage;
 
-    public CertificateTemplate() {
-    }
-
-    public String getSansRegex() {
-        return sansRegex;
-    }
-
-    public void setSansRegex(String sansRegex) {
-        this.sansRegex = sansRegex;
-    }
-
-    public String getKeyUsage() {
-        return keyUsage;
-    }
-
-    public void setKeyUsage(String keyUsage) {
-        this.keyUsage = keyUsage;
-    }
-
-    public String getExtendedKeyUsage() {
-        return extendedKeyUsage;
-    }
-
-    public void setExtendedKeyUsage(String extendedKeyUsage) {
-        this.extendedKeyUsage = extendedKeyUsage;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTemplateName() {
-        return templateName;
-    }
-
-    public void setTemplateName(String templateName) {
-        this.templateName = templateName;
-    }
-
-    public String getCaIssuerSerialNumber() {
-        return caIssuerSerialNumber;
-    }
-
-    public void setCaIssuerSerialNumber(String caIssuerSerialNumber) {
-        this.caIssuerSerialNumber = caIssuerSerialNumber;
-    }
-
-    public String getCommonNameRegex() {
-        return commonNameRegex;
-    }
-
-    public void setCommonNameRegex(String commonNameRegex) {
-        this.commonNameRegex = commonNameRegex;
-    }
-
-    public long getMaxValidityDays() {
-        return maxValidityDays;
-    }
-
-    public void setMaxValidityDays(long maxValidityDays) {
-        this.maxValidityDays = maxValidityDays;
-    }
 }
