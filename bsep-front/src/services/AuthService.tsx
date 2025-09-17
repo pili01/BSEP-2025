@@ -33,6 +33,21 @@ class AuthService {
 		localStorage.setItem('jwt', jwt);
 		return "Logged in successfully";
 	}
+
+	static async verifyEmail(token: string | null) {
+		const response = await fetch(`${API_URL}/auth/verify?token=${token}`, {
+			method: 'GET',
+		});
+		if (response.status < 200 || response.status >= 300) {
+			const error = await response.text();
+			throw new Error(error || 'Email verification failed');
+		}
+		return;
+	}
+
+	static logout() {
+		localStorage.removeItem('jwt');
+	}
 }
 
 export default AuthService;

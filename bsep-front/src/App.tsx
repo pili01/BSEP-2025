@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import { Alert, Snackbar } from '@mui/material'
+import VerifyEmail from './pages/VerifyEmail'
 
 function App() {
   const [mode, setMode] = useState<'dark' | 'light'>('dark');
@@ -51,6 +52,7 @@ function App() {
         <Route path='/' element={<h1>Home page</h1>} />
         <Route path='/login' element={<Login showSnackbar={showSnackbar}/>} />
         <Route path='/sign-up' element={<SignUp showSnackbar={showSnackbar} />} />
+        <Route path='/verify-email' element={<VerifyEmail showSnackbar={showSnackbar} />} />
       </Routes>
     </ThemeProvider>
   );

@@ -7,6 +7,8 @@ import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
 import Box from '@mui/material/Box';
 import AuthService from '../services/AuthService';
+import { CircularProgress } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 type Props = {
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
@@ -20,7 +22,8 @@ export default function Login({ showSnackbar }: Props) {
   const [recaptchaToken, setRecaptchaToken] = React.useState<string | null>(null);
   const recaptchaRef = React.useRef<ReCAPTCHA>(null);
   const [showPassword, setShowPassword] = React.useState(false);
-
+  const [loading, setLoading] = React.useState(false);
+  const navigate = useNavigate();
 
   interface LogInForm {
     email: string;
@@ -41,14 +44,18 @@ export default function Login({ showSnackbar }: Props) {
       return;
     }
     try {
+      setLoading(true);
       const response = await AuthService.login(form.email, form.password, recaptchaToken);
       showSnackbar(response, 'success');
+      navigate('/')
     } catch (error) {
       if (recaptchaRef.current) {
         (recaptchaRef.current as any).reset();
       }
       const errorMessage = (error instanceof Error && error.message) ? error.message : 'Unknown error';
       showSnackbar('Login failed: ' + errorMessage, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -76,8 +83,8 @@ export default function Login({ showSnackbar }: Props) {
           sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
           onChange={handleRecaptchaChange}
         />
-        <Button variant="contained" sx={{ mt: 1 }} fullWidth onClick={handleLogin} disabled={recaptchaToken ? false : true}>
-          Log in
+        <Button variant="contained" sx={{ mt: 1 }} fullWidth onClick={handleLogin} disabled={recaptchaToken && !loading ? false : true}>
+          {loading ? <CircularProgress size={24} /> : 'Log in'}
         </Button>
         <Typography variant="body2" align="center">
           Don&apos;t have an account?{' '}
