@@ -4,12 +4,14 @@ import com.bsep.pki.dtos.LoginDto;
 import com.bsep.pki.dtos.RegistrationDto;
 import com.bsep.pki.dtos.PasswordResetDto;
 import com.bsep.pki.models.User;
+import com.bsep.pki.services.Recaptcha;
 import com.bsep.pki.services.UserService;
 import com.bsep.pki.services.UserSessionService;
 import com.bsep.pki.services.PasswordResetService;
 import com.bsep.pki.utils.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -36,12 +38,14 @@ public class AuthController {
     private final JwtProvider jwtProvider;
     private final UserSessionService userSessionService;
     private final PasswordResetService passwordResetService;
+    private final Recaptcha recaptcha;
 
-    public AuthController(UserService userService, JwtProvider jwtProvider, UserSessionService userSessionService, PasswordResetService passwordResetService) {
+    public AuthController(UserService userService, JwtProvider jwtProvider, UserSessionService userSessionService, PasswordResetService passwordResetService, Recaptcha recaptcha) {
         this.userService = userService;
         this.jwtProvider = jwtProvider;
         this.userSessionService = userSessionService;
         this.passwordResetService = passwordResetService;
+        this.recaptcha = recaptcha;
     }
 
     @PostMapping("/register")
@@ -56,6 +60,9 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody LoginDto loginDto, HttpServletRequest request) {
+        if(!recaptcha.verifyRecaptcha(loginDto.getRecaptchaToken())) {
+            return new ResponseEntity<>("Recaptcha verification failed.", HttpStatus.BAD_REQUEST);
+        }
         Optional<User> userOptional = userService.loginUser(loginDto);
 
         if (userOptional.isPresent()) {

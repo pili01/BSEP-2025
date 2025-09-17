@@ -53,6 +53,11 @@ public class SecurityConfig {
                 .cors(cors -> cors
                         .configurationSource(corsConfigurationSource())
                 )
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("frame-ancestors 'self' https://www.google.com https://www.gstatic.com;")
+                        )
+                )
                 .addFilterBefore(userActivityFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new JwtAuthentificationFilter(token, customUserDetailsService),
                         BasicAuthenticationFilter.class);
@@ -62,7 +67,7 @@ public class SecurityConfig {
     @Bean
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
-        configuration.setAllowedOrigins(java.util.List.of("*"/*"https://localhost:5173"*/));
+        configuration.setAllowedOrigins(java.util.List.of("https://localhost:5173"));
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(java.util.List.of("*"));
         configuration.setAllowCredentials(true);

@@ -49,7 +49,7 @@ function App() {
       <NavBar toggleTheme={toggleTheme} mode={mode} />
       <Routes>
         <Route path='/' element={<h1>Home page</h1>} />
-        <Route path='/login' element={<Login />} />
+        <Route path='/login' element={<Login showSnackbar={showSnackbar}/>} />
         <Route path='/sign-up' element={<SignUp showSnackbar={showSnackbar} />} />
       </Routes>
     </ThemeProvider>
