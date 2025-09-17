@@ -8,6 +8,8 @@ import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import zxcvbn from "zxcvbn-typescript";
 import AuthService from '../services/AuthService';
+import { CircularProgress } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 const passwordStrengthLabels = [
     'Very Weak',
@@ -35,12 +37,14 @@ export default function SignUp({ showSnackbar }: SignUpProps) {
     const [error, setError] = React.useState('');
     const [showPassword, setShowPassword] = React.useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+    const navigate = useNavigate();
 
-    // Password requirements
-    const hasUpper = /[A-Z]/.test(form.password);
-    const hasLower = /[a-z]/.test(form.password);
-    const hasNumber = /[0-9]/.test(form.password);
-    const hasSpecial = /[^A-Za-z0-9]/.test(form.password);
+    // Password requirements (Unicode-friendly)
+    const hasUpper = /\p{Lu}/u.test(form.password);      // Uppercase
+    const hasLower = /\p{Ll}/u.test(form.password);      // Lowercase
+    const hasNumber = /\p{Nd}/u.test(form.password);     // Number (Unicode digit)
+    const hasSpecial = /[^\p{L}\p{Nd}]/u.test(form.password); // Special char
     const hasMinLength = form.password.length >= 8;
     const hasMaxLength = form.password.length <= 64;
     const passwordsMatch = form.password === form.confirmPassword && form.password.length > 0;
@@ -103,14 +107,18 @@ export default function SignUp({ showSnackbar }: SignUpProps) {
     interface HandleSubmitEvent extends React.FormEvent<HTMLFormElement> { }
 
     const handleSubmit = async (e: HandleSubmitEvent) => {
+        setLoading(true);
         e.preventDefault();
         if (!validate()) return;
         try {
             await AuthService.register(form);
             showSnackbar('Registration successful!', 'success');
+            navigate('/login');
         } catch (err) {
             const errorMessage = (err instanceof Error && err.message) ? err.message : 'Unknown error';
             showSnackbar('Registration failed: ' + errorMessage, 'error');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -195,7 +203,7 @@ export default function SignUp({ showSnackbar }: SignUpProps) {
                         {showConfirmPassword ? 'Hide password' : 'Show password'}
                     </Button>
                     {error && <Typography variant="body2" color="error" align="center">{error}</Typography>}
-                    <Button variant="contained" sx={{ mt: 1 }} fullWidth type="submit">Register</Button>
+                    <Button variant="contained" sx={{ mt: 1 }} fullWidth type="submit" disabled={loading}>{loading ? <CircularProgress size={24} /> : 'Register'}</Button>
                 </form>
                 <Typography variant="body2" align="center">
                     Already have an account?{' '}

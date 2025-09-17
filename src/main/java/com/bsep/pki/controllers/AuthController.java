@@ -4,13 +4,11 @@ import com.bsep.pki.dtos.LoginDto;
 import com.bsep.pki.dtos.RegistrationDto;
 import com.bsep.pki.dtos.PasswordResetDto;
 import com.bsep.pki.models.User;
-import com.bsep.pki.services.Recaptcha;
-import com.bsep.pki.services.UserService;
-import com.bsep.pki.services.UserSessionService;
-import com.bsep.pki.services.PasswordResetService;
+import com.bsep.pki.services.*;
 import com.bsep.pki.utils.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.ValidationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -51,6 +49,10 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<String> registerUser(@Valid @RequestBody RegistrationDto registrationDto) {
         try {
+            var validationResult = registrationDto.isPasswordValid();
+            if(!validationResult.getFirst()){
+                return new ResponseEntity<>(validationResult.getSecond(), HttpStatus.BAD_REQUEST);
+            }
             userService.registerUser(registrationDto);
             return new ResponseEntity<>("User successfully registered.", HttpStatus.CREATED);
         } catch (RuntimeException e) {
@@ -113,9 +115,9 @@ public class AuthController {
     }
 
     @GetMapping("/verify")
-    public ResponseEntity<String> verifyUser(@RequestParam String email) {
+    public ResponseEntity<String> verifyUser(@RequestParam String token) {
         try {
-            boolean isVerified = userService.verifyUser(email);
+            boolean isVerified = userService.verifyUser(token);
             if (isVerified) {
                 return new ResponseEntity<>("User successfully verified. You can now login.", HttpStatus.OK);
             } else {

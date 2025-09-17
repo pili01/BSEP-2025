@@ -29,12 +29,12 @@ public class EmailService {
 
             helper.setTo(registrationDto.getEmail());
             helper.setFrom(env.getProperty("spring.mail.username"));
-            helper.setSubject("Verifikacija naloga - PKI Sistem");
+            helper.setSubject("Verifikacija naloga - BSEP Aplikacija");
 
             String htmlMsg = "<p>Pozdrav " + registrationDto.getFirstName() + ",</p>"
                     + "<p>Klikni na link ispod kako bi izvršio verifikaciju svog naloga:</p>"
                     + "<a href='" + link + "'>Verifikuj svoj nalog</a>"
-                    + "<p>Link je važI 24 sata.</p>"
+                    + "<p>Link važI 24 sata.</p>"
                     + "<p>Hvala!</p>";
 
             helper.setText(htmlMsg, true);

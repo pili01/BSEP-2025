@@ -1101,6 +1101,7 @@ public class CertificateService {
         }
     }
 
+    @Transactional
     public void revokeCertificate(String serialNumber, RevokedReason reason) {
         Optional<Certificate> certOptional = certificateRepository.findBySerialNumber(serialNumber);
         if (certOptional.isEmpty()) {
@@ -1113,6 +1114,7 @@ public class CertificateService {
         certificateRepository.save(certificate);
     }
 
+    @Transactional
     public AbstractMap.SimpleEntry<X509Certificate, PrivateKey> getRootCertificateWithPk() {
         Optional<Certificate> rootCertOpt = certificateRepository.findAll().stream()
                 .filter(cert -> cert.getType() == CertificateType.ROOT)

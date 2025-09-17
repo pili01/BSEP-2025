@@ -4,7 +4,9 @@ import com.bsep.pki.dtos.LoginDto;
 import com.bsep.pki.dtos.RegistrationDto;
 import com.bsep.pki.models.User;
 import com.bsep.pki.models.UserRole;
+import com.bsep.pki.models.VerificationToken;
 import com.bsep.pki.repositories.UserRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,13 +24,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final VerificationService verificationService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService, VerificationService verificationService) {
+        this.verificationService = verificationService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
     }
 
+    @Transactional
     public User registerUser(RegistrationDto registrationDto) {
         if (userRepository.findByEmail(registrationDto.getEmail()).isPresent()) {
             throw new RuntimeException("Email is already in use.");
@@ -46,7 +51,9 @@ public class UserService {
 
         user = userRepository.save(user);
 
-        String verificationLink = "https://localhost:8443/api/auth/verify?email=" + user.getEmail();
+        VerificationToken token = verificationService.save(new VerificationToken(user.getEmail()));
+        if (token == null) throw new RuntimeException("Error creating verification token");
+        String verificationLink = "https://localhost:5173/verify-email?token=" + token.getToken();
         emailService.sendVerificationEmail(registrationDto, verificationLink);
 
         return user;
@@ -56,7 +63,6 @@ public class UserService {
     public Optional<User> getUserByEmail(String email) {
         return userRepository.findByEmail(email);
     }
-
 
 
     public User registerAdmin(RegistrationDto registrationDto) throws NoSuchAlgorithmException {
@@ -121,7 +127,11 @@ public class UserService {
         return Optional.empty();
     }
 
-    public boolean verifyUser(String email) {
+    @Transactional
+    public boolean verifyUser(String token) {
+        String email = verificationService.checkToken(token);
+        verificationService.markTokenAsUsed(token);
+
         Optional<User> userOptional = userRepository.findByEmail(email);
 
         if (userOptional.isPresent()) {
