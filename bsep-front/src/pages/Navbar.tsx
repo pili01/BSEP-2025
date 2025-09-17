@@ -18,14 +18,19 @@ import { MoonIcon, SunIcon } from 'flowbite-react';
 const pages = ['Products', 'Pricing', 'Blog'];
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
-function NavBar({ toggleTheme, mode }) {
-  const [anchorElNav, setAnchorElNav] = React.useState(null);
-  const [anchorElUser, setAnchorElUser] = React.useState(null);
+interface NavBarProps {
+  toggleTheme: () => void;
+  mode: 'light' | 'dark';
+}
 
-  const handleOpenNavMenu = (event) => {
+function NavBar({ toggleTheme, mode }: NavBarProps) {
+  const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
+  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+
+  const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElNav(event.currentTarget);
   };
-  const handleOpenUserMenu = (event) => {
+  const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElUser(event.currentTarget);
   };
 
@@ -69,7 +74,7 @@ function NavBar({ toggleTheme, mode }) {
               textDecoration: 'none',
             }}
           >
-            BESP
+            BSEP
           </Typography>
 
           <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
@@ -135,7 +140,7 @@ function NavBar({ toggleTheme, mode }) {
               textDecoration: 'none',
             }}
           >
-            BESP
+            BSEP
           </Typography>
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
             {pages.map((page) => (
@@ -149,7 +154,7 @@ function NavBar({ toggleTheme, mode }) {
             ))}
           </Box>
           <Box sx={{ flexGrow: 0 }}>
-            <Tooltip title="Open settings" variant="solid">
+            <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                 <Avatar sx={{
                   backgroundColor: mode === 'dark' ? 'white' : 'inherit',
