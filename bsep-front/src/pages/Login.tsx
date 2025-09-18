@@ -60,7 +60,7 @@ export default function Login({ showSnackbar }: Props) {
         (recaptchaRef.current as any).reset();
       }
       const errorMessage = (error instanceof Error && error.message) ? error.message : 'Unknown error';
-      showSnackbar('Login failed: ' + errorMessage, 'error');
+      showSnackbar(errorMessage, 'error');
     } finally {
       setLoading(false);
     }

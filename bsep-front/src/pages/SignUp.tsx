@@ -116,7 +116,7 @@ export default function SignUp({ showSnackbar }: SignUpProps) {
             navigate('/login');
         } catch (err) {
             const errorMessage = (err instanceof Error && err.message) ? err.message : 'Unknown error';
-            showSnackbar('Registration failed: ' + errorMessage, 'error');
+            showSnackbar(errorMessage, 'error');
         } finally {
             setLoading(false);
         }

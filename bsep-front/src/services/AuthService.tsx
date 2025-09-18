@@ -10,11 +10,7 @@ class AuthService {
 			},
 			body: JSON.stringify(user),
 		});
-		if (response.status < 200 || response.status >= 300) {
-			const error = await response.text();
-			throw new Error(error || 'Registration failed');
-		}
-		return;
+		return await this.handleResponse(response, 'Registration failed');
 	}
 
 	static async login(email: string, password: string, recaptchaToken: string): Promise<any> {
@@ -25,11 +21,7 @@ class AuthService {
 			},
 			body: JSON.stringify({ email, password, recaptchaToken }),
 		});
-		if (response.status < 200 || response.status >= 300) {
-			const error = await response.json();
-			throw new Error(error.message || 'Login failed');
-		}
-		return await response.json();
+		return await this.handleResponse(response, 'Login failed');
 	}
 
 	static async verify2fa(email: string, password: string, code2fa: string, disable2fa: boolean): Promise<any> {
@@ -40,22 +32,14 @@ class AuthService {
 			},
 			body: JSON.stringify({ email, password, code2fa, disable2fa }),
 		});
-		if (response.status < 200 || response.status >= 300) {
-			const error = await response.json();
-			throw new Error(error.message || 'Login failed');
-		}
-		return await response.json();
+		return await this.handleResponse(response, '2FA verification failed');
 	}
 
 	static async verifyEmail(token: string | null) {
 		const response = await fetch(`${API_URL}/auth/verify?token=${token}`, {
 			method: 'GET',
 		});
-		if (response.status < 200 || response.status >= 300) {
-			const error = await response.text();
-			throw new Error(error || 'Email verification failed');
-		}
-		return;
+		return await this.handleResponse(response, 'Email verification failed');
 	}
 
 	static async enable2fa() {
@@ -69,11 +53,7 @@ class AuthService {
 				'Content-Type': 'application/json',
 			},
 		});
-		if (response.status < 200 || response.status >= 300) {
-			const error = await response.json();
-			throw new Error(error.message || 'Failed to fetch current user');
-		}
-		return await response.json();
+		return await this.handleResponse(response, 'Failed to enable 2fa');
 	}
 
 	static async verifyEnable2fa(code: number) {
@@ -86,17 +66,52 @@ class AuthService {
 				'Authorization': `Bearer ${jwt}`,
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify({ code2fa:code }),
+			body: JSON.stringify({ code2fa: code }),
 		});
-		if (response.status < 200 || response.status >= 300) {
-			const error = await response.json();
-			throw new Error(error.message || 'Failed to fetch current user');
-		}
-		return await response.json();
+		return await this.handleResponse(response, 'Failed to verify 2fa code');
 	}
 
 	static logout() {
 		localStorage.removeItem('jwt');
+	}
+
+	static async handleResponse(response: Response, defaultErrorMessage: string) {
+		if (response.status < 200 || response.status >= 300) {
+			const errorText = await response.text();
+			let error;
+			try {
+				error = JSON.parse(errorText);
+			} catch {
+				error = { message: errorText };
+			}
+			const statusMessage = this.createErrorOfStatusCode(response.status);
+			console.log(statusMessage);
+			throw new Error(`${statusMessage}: ${error.message || defaultErrorMessage}`);
+		}
+		const text = await response.text();
+		if (!text) return null;
+		try {
+			return JSON.parse(text);
+		} catch {
+			return text;
+		}
+	}
+
+	static createErrorOfStatusCode(status: number) {
+		switch (status) {
+			case 400:
+				return 'Bad Request';
+			case 401:
+				return 'Unauthorized';
+			case 403:
+				return 'Forbidden';
+			case 404:
+				return 'Not Found';
+			case 500:
+				return 'Internal Server Error';
+			default:
+				return 'An error occurred';
+		}
 	}
 }
 

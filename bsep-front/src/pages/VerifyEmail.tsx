@@ -33,7 +33,8 @@ export default function VerifyEmail({ showSnackbar }: Props) {
         } catch (err) {
             setSuccess(false);
             setMessage('Verification failed. Please try again or contact support.');
-            showSnackbar('Email verification failed: ' + (err instanceof Error ? err.message : 'Unknown error'), 'error');
+            const errorMessage = (err instanceof Error && err.message) ? err.message : 'Unknown error';
+            showSnackbar(errorMessage, 'error');
         } finally {
             setLoading(false);
         }

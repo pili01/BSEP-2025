@@ -117,7 +117,7 @@ public class AuthController {
                     return new ResponseEntity<>(Map.of("message", "User not verified. Please check your email for verification link."), HttpStatus.UNAUTHORIZED);
                 }
 
-                if (!twoFactorAuthService.verifyCode(user.getTwoFactorSecret(), loginDto.getCode2fa())) {
+                if (!twoFactorAuthService.verifyCode(user.getTwoFactorSecret(), loginDto.getCode2fa(), user.getEmail())) {
                     return new ResponseEntity<>(Map.of("message", "Invalid 2FA code."), HttpStatus.BAD_REQUEST);
                 }
 
@@ -187,7 +187,13 @@ public class AuthController {
         try {
             User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             String qrCodeImage = userService.enableTwoFactorAuth(currentUser.getEmail());
-            List<String> backupCodes = new ArrayList<>();//twoFactorAuthService.generateBackupCodesForUser(user);
+            List<String> backupCodes = twoFactorAuthService.generateBackupCodes(currentUser.getEmail());
+            if (backupCodes.size() != 5) {
+                throw new ValidationException("Error generating backup codes for 2FA.");
+            }
+            if (qrCodeImage == null || qrCodeImage.isEmpty()) {
+                throw new ValidationException("Error generating QR code for 2FA.");
+            }
 
             Map<String, Object> response = new HashMap<>();
             response.put("qrCodeImage", qrCodeImage);

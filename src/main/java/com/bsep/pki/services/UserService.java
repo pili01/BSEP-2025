@@ -164,7 +164,7 @@ public class UserService {
         Optional<User> userOptional = userRepository.findByEmail(email);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            if(user.isTwoFactorEnabled()){
+            if (user.isTwoFactorEnabled()) {
                 throw new RuntimeException("Two-factor authentication is already enabled.");
             }
             twoFactorAuthService.generateSecretKey();
@@ -183,10 +183,10 @@ public class UserService {
         Optional<User> userOptional = userRepository.findByEmail(email);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            if(user.isTwoFactorEnabled()){
+            if (user.isTwoFactorEnabled()) {
                 throw new RuntimeException("Two-factor authentication is already enabled.");
             }
-            if(!twoFactorAuthService.verifyCode(user.getTwoFactorSecret(),code)){
+            if (!twoFactorAuthService.verifyCode(user.getTwoFactorSecret(), code, user.getEmail())) {
                 throw new RuntimeException("Invalid 2FA code.");
             }
 
@@ -202,7 +202,7 @@ public class UserService {
         Optional<User> userOptional = userRepository.findByEmail(email);
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            if(!user.isTwoFactorEnabled()){
+            if (!user.isTwoFactorEnabled()) {
                 throw new RuntimeException("Two-factor authentication is already disabled.");
             }
             user.setTwoFactorEnabled(false);

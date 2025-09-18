@@ -33,7 +33,7 @@ export default function Enable2FA({ showSnackbar }: Props) {
                 setError('Failed to enable 2FA');
                 navigate('/');
                 const errorMessage = (error instanceof Error && error.message) ? error.message : 'Unknown error';
-                showSnackbar('Failed to enable 2FA: ' + errorMessage, 'error');
+                showSnackbar(errorMessage, 'error');
             }
         };
         fetchData();
@@ -72,7 +72,7 @@ export default function Enable2FA({ showSnackbar }: Props) {
                 {qrCode && <img src={qrCode} alt="QR Code" style={{ marginBottom: 16, width: 180, height: 180 }} />}
                 <Box sx={{ mb: 2, width: '100%' }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Backup Codes:</Typography>
-                    <Paper variant="outlined" sx={{ p: 2, background: '#fff', mb: 1 }}>
+                    <Paper variant="outlined" sx={{ p: 2, mb: 1 }}>
                         <ul style={{ margin: 0, paddingLeft: 18 }}>
                             {backupCodes.map((code, idx) => (
                                 <li key={idx} style={{ fontFamily: 'monospace', fontSize: 15 }}>{code}</li>
