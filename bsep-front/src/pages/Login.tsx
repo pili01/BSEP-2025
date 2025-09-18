@@ -46,8 +46,15 @@ export default function Login({ showSnackbar }: Props) {
     try {
       setLoading(true);
       const response = await AuthService.login(form.email, form.password, recaptchaToken);
-      showSnackbar(response, 'success');
-      navigate('/')
+      if (response.twoFaEnabled) {
+        navigate('/2fa', { state: { email: form.email, password: form.password } });
+      } else if (response.token) {
+        localStorage.setItem('jwt', response.token);
+        showSnackbar("Login successful", 'success');
+        navigate('/');
+      } else {
+        showSnackbar('Login failed: Unknown response from server', 'error');
+      }
     } catch (error) {
       if (recaptchaRef.current) {
         (recaptchaRef.current as any).reset();

@@ -13,7 +13,10 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AppLogo from '../assets/logo.png'
 import Add from '@mui/icons-material/Add';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { useNavigate } from 'react-router-dom';
 import { MoonIcon, SunIcon } from 'flowbite-react';
+import AuthService from '../services/AuthService';
 
 const pages = ['Products', 'Pricing', 'Blog'];
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
@@ -26,6 +29,8 @@ interface NavBarProps {
 function NavBar({ toggleTheme, mode }: NavBarProps) {
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+  const [twoFaEnabled, setTwoFaEnabled] = React.useState(false); // Pretpostavi da se status dobija iz AuthService ili user contexta
+  const navigate = useNavigate();
 
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElNav(event.currentTarget);
@@ -111,6 +116,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               ))}
             </Menu>
           </Box>
+
           <Box
             component="img"
             src={AppLogo}
@@ -153,6 +159,17 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               </Button>
             ))}
           </Box>
+          {/* ...existing code... */}
+          {!twoFaEnabled && (
+            <Button
+              color="warning"
+              startIcon={<WarningAmberIcon />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/enable-2fa')}
+            >
+              Enable 2FA
+            </Button>
+          )}
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
@@ -162,6 +179,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
                 }} alt="Dusko Pilipovic" src="/static/images/avatar/3.jpg" />
               </IconButton>
             </Tooltip>
+
             <Menu
               sx={{ mt: '45px' }}
               id="menu-appbar"

@@ -1,5 +1,6 @@
 package com.bsep.pki.models;
 
+import com.bsep.pki.utils.TokenGenerator;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

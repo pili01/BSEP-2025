@@ -1,4 +1,4 @@
-package com.bsep.pki.models;
+package com.bsep.pki.utils;
 import java.security.SecureRandom;
 import java.util.Base64;
 

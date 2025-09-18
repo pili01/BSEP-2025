@@ -6,7 +6,9 @@ import com.bsep.pki.models.User;
 import com.bsep.pki.models.UserRole;
 import com.bsep.pki.models.VerificationToken;
 import com.bsep.pki.repositories.UserRepository;
+import com.bsep.pki.utils.QRCodeGenerator;
 import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -25,8 +27,10 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final VerificationService verificationService;
+    private final TwoFactorAuthService twoFactorAuthService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService, VerificationService verificationService) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService, VerificationService verificationService, TwoFactorAuthService twoFactorAuthService) {
+        this.twoFactorAuthService = twoFactorAuthService;
         this.verificationService = verificationService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -153,6 +157,61 @@ public class UserService {
         }
 
         return false;
+    }
+
+    @Transactional
+    public String enableTwoFactorAuth(String email) throws Exception {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if(user.isTwoFactorEnabled()){
+                throw new RuntimeException("Two-factor authentication is already enabled.");
+            }
+            twoFactorAuthService.generateSecretKey();
+            user.setTwoFactorSecret(twoFactorAuthService.getEncryptedSecret());
+
+            String image = twoFactorAuthService.getQRBarkode(user.getEmail());
+            userRepository.save(user);
+            return image;
+        } else {
+            throw new RuntimeException("User not found.");
+        }
+    }
+
+    @Transactional
+    public void verifyTwoFactorAuth(String email, int code) throws Exception {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if(user.isTwoFactorEnabled()){
+                throw new RuntimeException("Two-factor authentication is already enabled.");
+            }
+            if(!twoFactorAuthService.verifyCode(user.getTwoFactorSecret(),code)){
+                throw new RuntimeException("Invalid 2FA code.");
+            }
+
+            user.setTwoFactorEnabled(true);
+            userRepository.save(user);
+        } else {
+            throw new RuntimeException("User not found.");
+        }
+    }
+
+    @Transactional
+    public void disableTwoFactorAuth(String email) throws Exception {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if(!user.isTwoFactorEnabled()){
+                throw new RuntimeException("Two-factor authentication is already disabled.");
+            }
+            user.setTwoFactorEnabled(false);
+            user.setTwoFactorSecret(null);
+
+            userRepository.save(user);
+        } else {
+            throw new RuntimeException("User not found.");
+        }
     }
 
     public Optional<User> findByEmail(String userEmail) {
