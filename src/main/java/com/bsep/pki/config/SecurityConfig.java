@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/certificates/**").permitAll()
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/crl").permitAll()
+                        .requestMatchers("/api/passwords/**").hasAnyAuthority("REGULAR_USER")
                         .anyRequest().authenticated()
                 )
                 .cors(cors -> cors

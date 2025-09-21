@@ -9,6 +9,7 @@ import Box from '@mui/material/Box';
 import AuthService from '../services/AuthService';
 import { CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 
 type Props = {
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
@@ -24,6 +25,7 @@ export default function Login({ showSnackbar }: Props) {
   const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const navigate = useNavigate();
+  const { user, setUser, logout } = useUser();
 
   interface LogInForm {
     email: string;
@@ -51,6 +53,13 @@ export default function Login({ showSnackbar }: Props) {
       } else if (response.token) {
         localStorage.setItem('jwt', response.token);
         showSnackbar("Login successful", 'success');
+        const userInfo = await AuthService.getMyInfo();
+        console.log("User info after login:", userInfo);
+        if (!userInfo) {
+          showSnackbar('Failed to fetch user info after login', 'error');
+          return;
+        }
+        await setUser(userInfo);
         navigate('/');
       } else {
         showSnackbar('Login failed: Unknown response from server', 'error');
@@ -73,7 +82,7 @@ export default function Login({ showSnackbar }: Props) {
           <b>Welcome!</b>
         </Typography>
         <Typography variant="body2" align="center" gutterBottom>
-          Sign in to continue.
+          Login to continue.
         </Typography>
         <TextField label="Email" name="email" type="email" value={form.email} onChange={handleChange} required fullWidth />
         <TextField label="Password" name="password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={handleChange} required fullWidth placeholder="Password" />

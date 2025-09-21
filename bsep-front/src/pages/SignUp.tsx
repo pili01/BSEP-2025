@@ -107,10 +107,10 @@ export default function SignUp({ showSnackbar }: SignUpProps) {
     interface HandleSubmitEvent extends React.FormEvent<HTMLFormElement> { }
 
     const handleSubmit = async (e: HandleSubmitEvent) => {
-        setLoading(true);
         e.preventDefault();
         if (!validate()) return;
         try {
+            setLoading(true);
             await AuthService.register(form);
             showSnackbar('Registration successful!', 'success');
             navigate('/login');

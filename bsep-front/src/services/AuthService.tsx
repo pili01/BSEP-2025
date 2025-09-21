@@ -44,7 +44,7 @@ class AuthService {
 
 	static async enable2fa() {
 		const jwt = localStorage.getItem('jwt');
-		if (!jwt) return null;
+		if (!jwt) throw new Error('No JWT token found');
 
 		const response = await fetch(`${API_URL}/auth/enable-2fa`, {
 			method: 'GET',
@@ -56,9 +56,24 @@ class AuthService {
 		return await this.handleResponse(response, 'Failed to enable 2fa');
 	}
 
+	static async getMyInfo() {
+		const jwt = localStorage.getItem('jwt');
+		if (!jwt) throw new Error('No JWT token found');
+		console.log("Dobavljanje podataka o korisniku sa bekenda");
+
+		const response = await fetch(`${API_URL}/auth/me`, {
+			method: 'GET',
+			headers: {
+				'Authorization': `Bearer ${jwt}`,
+				'Content-Type': 'application/json',
+			},
+		});
+		return await this.handleResponse(response, 'Failed to get user info');
+	}
+
 	static async verifyEnable2fa(code: number) {
 		const jwt = localStorage.getItem('jwt');
-		if (!jwt) return null;
+		if (!jwt) throw new Error('No JWT token found');
 
 		const response = await fetch(`${API_URL}/auth/verify-2fa`, {
 			method: 'POST',

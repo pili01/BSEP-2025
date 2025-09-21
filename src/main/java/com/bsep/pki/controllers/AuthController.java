@@ -244,6 +244,42 @@ public class AuthController {
         }
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("hasAuthority('REGULAR_USER') or hasAuthority('ADMIN') or hasAuthority('CA_USER')")
+    public ResponseEntity<?> getMyInfo() {
+        try {
+            User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            var response = userService.getUserPublicData(currentUser.getId());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @GetMapping("/allRegularUsers")
+    @PreAuthorize("hasAuthority('REGULAR_USER') or hasAuthority('ADMIN') or hasAuthority('CA_USER')")
+    public ResponseEntity<?> getAllRegularUsers() {
+        try {
+            var response = userService.getAllRegularUsers();
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PostMapping("/savePublicKey")
+    @PreAuthorize("hasAuthority('REGULAR_USER')")
+    public ResponseEntity<String> savePublicKey(@RequestBody Map<String, String> body) {
+        try {
+            String publicKey = body.get("publicKey");
+            User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            userService.savePublicKey(currentUser.getEmail(), publicKey);
+            return new ResponseEntity<>("Public key saved successfully", HttpStatus.OK);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {

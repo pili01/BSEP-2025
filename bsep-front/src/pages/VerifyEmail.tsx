@@ -22,9 +22,9 @@ export default function VerifyEmail({ showSnackbar }: Props) {
     const navigate = useNavigate();
 
     const handleVerify = async () => {
-        setLoading(true);
         setMessage('');
         try {
+            setLoading(true);
             await AuthService.verifyEmail(token);
             setSuccess(true);
             setMessage('Your email has been successfully verified!');

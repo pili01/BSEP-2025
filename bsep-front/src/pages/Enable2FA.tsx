@@ -8,6 +8,7 @@ import TextField from '@mui/material/TextField';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AuthService from '../services/AuthService';
 import { CircularProgress } from '@mui/material';
+import { useUser } from '../context/UserContext';
 
 type Props = {
     showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
@@ -20,6 +21,7 @@ export default function Enable2FA({ showSnackbar }: Props) {
     const [error, setError] = React.useState('');
     const [success, setSuccess] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
+    const { user, setUser, logout } = useUser();
     const navigate = useNavigate();
 
 
@@ -49,6 +51,13 @@ export default function Enable2FA({ showSnackbar }: Props) {
             }
             await AuthService.verifyEnable2fa(code);
             setSuccess(true);
+            const userInfo = await AuthService.getMyInfo();
+            console.log("User info after login:", userInfo);
+            if (!userInfo) {
+                showSnackbar('Failed to fetch user info after enabling 2FA', 'error');
+                return;
+            }
+            await setUser(userInfo);
             navigate('/');
             showSnackbar('2FA enabled successfully!', 'success');
         } catch (error) {

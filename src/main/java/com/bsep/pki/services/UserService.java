@@ -2,13 +2,15 @@ package com.bsep.pki.services;
 
 import com.bsep.pki.dtos.LoginDto;
 import com.bsep.pki.dtos.RegistrationDto;
+import com.bsep.pki.dtos.UserPublicDataDto;
 import com.bsep.pki.models.User;
 import com.bsep.pki.models.UserRole;
 import com.bsep.pki.models.VerificationToken;
 import com.bsep.pki.repositories.UserRepository;
-import com.bsep.pki.utils.QRCodeGenerator;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Value;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import org.modelmapper.ModelMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +20,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -28,13 +31,15 @@ public class UserService {
     private final EmailService emailService;
     private final VerificationService verificationService;
     private final TwoFactorAuthService twoFactorAuthService;
+    private final ModelMapper modelMapper;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService, VerificationService verificationService, TwoFactorAuthService twoFactorAuthService) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService, VerificationService verificationService, TwoFactorAuthService twoFactorAuthService, ModelMapper modelMapper) {
         this.twoFactorAuthService = twoFactorAuthService;
         this.verificationService = verificationService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.modelMapper = modelMapper;
     }
 
     @Transactional
@@ -216,5 +221,36 @@ public class UserService {
 
     public Optional<User> findByEmail(String userEmail) {
         return userRepository.findByEmail(userEmail);
+    }
+
+    public UserPublicDataDto getUserPublicData(Long userId) {
+        Optional<User> user = userRepository.findById(userId);
+
+        if (user.isEmpty()) {
+            throw new RuntimeException("User not found");
+        }
+        return modelMapper.map(user.get(), UserPublicDataDto.class);
+    }
+
+    public List<UserPublicDataDto> getAllRegularUsers() {
+        List<User> users = userRepository.findAll().stream()
+                .filter(user -> user.getRole() == UserRole.REGULAR_USER)
+                .toList();
+        return users.stream()
+                .map(user -> modelMapper.map(user, UserPublicDataDto.class))
+                .toList();
+    }
+
+    public void savePublicKey(@NotBlank @Email String email, String publicKey) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if(user.getPublicKey()!=null)
+                throw new RuntimeException("Public key is already set and cannot be changed.");
+            user.setPublicKey(publicKey);
+            userRepository.save(user);
+        } else {
+            throw new RuntimeException("User not found.");
+        }
     }
 }

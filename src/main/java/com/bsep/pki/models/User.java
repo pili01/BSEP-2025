@@ -71,6 +71,9 @@ public class User implements UserDetails {
 
     @Column(name = "two_factor_secret")
     private String twoFactorSecret;
+
+    @Column(name = "public_key", columnDefinition = "TEXT")
+    private String publicKey;
     
     public User() {
         this.createdAt = LocalDateTime.now();

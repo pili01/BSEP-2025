@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import { CircularProgress, FormControlLabel, Checkbox } from '@mui/material';
 import AuthService from '../services/AuthService';
+import { useUser } from '../context/UserContext';
 
 type Props = {
   showSnackbar: (message: string, severity: 'success' | 'error' | 'info' | 'warning') => void;
@@ -22,17 +23,26 @@ export default function TwoFactorAuth({ showSnackbar }: Props) {
   const [error, setError] = React.useState('');
   const [success, setSuccess] = React.useState(false);
   const [disable2fa, setDisable2fa] = React.useState(false);
+  const { user, setUser, logout } = useUser();
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
     try {
+      setLoading(true);
       const response = await AuthService.verify2fa(email, password, code, disable2fa);
       if (response.token) {
         localStorage.setItem('jwt', response.token);
         setSuccess(true);
         showSnackbar('Login successful', 'success');
+        const userInfo = await AuthService.getMyInfo();
+        console.log("User info after login:", userInfo);
+        if (!userInfo) {
+          showSnackbar('Failed to fetch user info after login', 'error');
+          return;
+        }
+        await setUser(userInfo);
         navigate('/');
       } else {
         setError('Invalid code or login failed.');

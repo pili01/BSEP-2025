@@ -9,6 +9,9 @@ import { Alert, Snackbar } from '@mui/material'
 import VerifyEmail from './pages/VerifyEmail'
 import TwoFactorAuth from './pages/TwoFactorAuth'
 import Enable2FA from './pages/Enable2FA'
+import SavedPasswords from './pages/SavedPasswords'
+import { UserProvider } from './context/UserContext'
+import GenerateKeyPage from './pages/GenerateKeyPage'
 
 function App() {
   const [mode, setMode] = useState<'dark' | 'light'>('dark');
@@ -25,6 +28,7 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
+      <UserProvider>
       {snackbars.map((snack, idx) => (
         <Snackbar
           key={snack.id}
@@ -57,7 +61,11 @@ function App() {
         <Route path='/verify-email' element={<VerifyEmail showSnackbar={showSnackbar} />} />
         <Route path='/2fa' element={<TwoFactorAuth showSnackbar={showSnackbar} />} />
         <Route path='/enable-2fa' element={<Enable2FA showSnackbar={showSnackbar} />} />
+        <Route path='/password-manager' element={<SavedPasswords showSnackbar={showSnackbar} />} />
+        <Route path='/generate-key' element={<GenerateKeyPage showSnackbar={showSnackbar} />} />
+        <Route path='*' element={<h1>404 Not Found</h1>} />
       </Routes>
+      </UserProvider>
     </ThemeProvider>
   );
 }

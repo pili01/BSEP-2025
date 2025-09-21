@@ -17,8 +17,10 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
 import { MoonIcon, SunIcon } from 'flowbite-react';
 import AuthService from '../services/AuthService';
+import { useUser } from '../context/UserContext';
+import PasswordService from '../services/PasswordService';
 
-const pages = ['Products', 'Pricing', 'Blog'];
+const pages = ['Products', 'Pricing', 'Password manager'];
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
 interface NavBarProps {
@@ -26,7 +28,9 @@ interface NavBarProps {
   mode: 'light' | 'dark';
 }
 
+
 function NavBar({ toggleTheme, mode }: NavBarProps) {
+  const { user, setUser, logout } = useUser();
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   const [twoFaEnabled, setTwoFaEnabled] = React.useState(false); // Pretpostavi da se status dobija iz AuthService ili user contexta
@@ -110,7 +114,16 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               sx={{ display: { xs: 'block', md: 'none' } }}
             >
               {pages.map((page) => (
-                <MenuItem key={page} onClick={handleCloseNavMenu}>
+                <MenuItem
+                  key={page}
+                  onClick={() => {
+                    handleCloseNavMenu();
+                    // Navigacija na osnovu imena stranice
+                    if (page === 'Products') navigate('/products');
+                    else if (page === 'Pricing') navigate('/pricing');
+                    else if (page === 'Password manager') navigate('/password-manager');
+                  }}
+                >
                   <Typography sx={{ textAlign: 'center' }}>{page}</Typography>
                 </MenuItem>
               ))}
@@ -152,7 +165,13 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             {pages.map((page) => (
               <Button
                 key={page}
-                onClick={handleCloseNavMenu}
+                style={{ marginLeft: '10px' }}
+                onClick={() => {
+                  handleCloseNavMenu();
+                  if (page === 'Products') navigate('/products');
+                  else if (page === 'Pricing') navigate('/pricing');
+                  else if (page === 'Password manager') navigate('/password-manager');
+                }}
                 sx={{ my: 2, color: 'white', display: 'block' }}
               >
                 {page}
@@ -160,7 +179,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             ))}
           </Box>
           {/* ...existing code... */}
-          {!twoFaEnabled && (
+          {!user?.twoFactorEnabled && (
             <Button
               color="warning"
               startIcon={<WarningAmberIcon />}
@@ -176,7 +195,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
                 <Avatar sx={{
                   backgroundColor: mode === 'dark' ? 'white' : 'inherit',
                   border: mode === 'light' ? '1px solid white' : 'none'
-                }} alt="Dusko Pilipovic" src="/static/images/avatar/3.jpg" />
+                }} alt={user?.firstName} src="/static/images/avatar/3.jpg" />
               </IconButton>
             </Tooltip>
 
@@ -196,12 +215,18 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               open={Boolean(anchorElUser)}
               onClose={handleCloseUserMenu}
             >
-              <Button color="inherit" onClick={toggleTheme}>
+              <Button color="inherit" style={{ transform: 'scale(0.9)' }} onClick={toggleTheme}>
                 {mode === 'dark' ? <SunIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} /> : <MoonIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} />}
                 {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
               </Button>
+
               {settings.map((setting) => (
-                <MenuItem key={setting} onClick={handleCloseUserMenu}>
+                <MenuItem key={setting} onClick={() => {
+                  handleCloseUserMenu();
+                  if (setting === 'Logout') {
+                    logout();
+                  }
+                }}>
                   <Typography sx={{ textAlign: 'center' }}>{setting}</Typography>
                 </MenuItem>
               ))}
