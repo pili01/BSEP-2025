@@ -1,4 +1,4 @@
-import { StoredPassword } from "../models/StoredPassword";
+import { PasswordShare, StoredPassword } from "../models/StoredPassword";
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const serviceUrl = `${API_URL}/passwords`;
@@ -18,6 +18,21 @@ class PasswordService {
 			body: JSON.stringify(passwordData),
 		});
 		return await this.handleResponse(response, 'Failed to add password');
+	}
+
+	static async sharePassword(passwordToShareId: string, sharedPassword: PasswordShare): Promise<any> {
+		const jwt = localStorage.getItem('jwt');
+		if (!jwt) throw new Error('No JWT token found');
+
+		const response = await fetch(`${serviceUrl}/share/${passwordToShareId}`, {
+			method: 'POST',
+			headers: {
+				'Authorization': `Bearer ${jwt}`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(sharedPassword),
+		});
+		return await this.handleResponse(response, 'Failed to share password');
 	}
 
 	static async getPasswords(): Promise<any> {

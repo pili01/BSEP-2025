@@ -13,4 +13,6 @@ public interface StoredPasswordRepository extends MongoRepository<StoredPassword
     @Query("{ '$or': [ { 'ownerId': ?0 }, { 'shares.userId': ?0 } ] }")
     List<StoredPassword> findAllMyPasswords(Long userId);
 
+    @Query("{ '$and': [ { 'ownerId': ?0 }, { 'id': ?1 } ] }")
+    StoredPassword findMyById(Long ownerId, String storedPasswordId);
 }

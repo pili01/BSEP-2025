@@ -40,7 +40,7 @@ const SavedPasswords: React.FC<Props> = ({ showSnackbar }) => {
     const [showShareModal, setShowShareModal] = useState(false);
     const [users, setUsers] = useState<User[]>([]);
     const [usersForSharing, setUsersForSharing] = useState<User[]>([]);
-    const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+    const [selectedUserToShare, setSelectedUserToShare] = useState<User | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [newSiteName, setNewSiteName] = useState('');
     const [newSiteUsername, setNewSiteUsername] = useState('');
@@ -125,10 +125,12 @@ const SavedPasswords: React.FC<Props> = ({ showSnackbar }) => {
     };
 
     const handleShareSubmit = async () => {
-        // TODO: Encrypt password for selectedUserId using njegov javni ključ
-        // TODO: Pozvati backend da doda u sharedList
-        alert(`Podijeli lozinku sa korisnikom ${selectedUserId}`);
+        if (!selectedUserToShare || !selectedPassword) {
+            showSnackbar('Select user to share with', 'warning');
+            return;
+        }
         setShowShareModal(false);
+        handleDecrypt(selectedPassword);
     };
 
     const handleAddNewPassword = async () => {
@@ -180,6 +182,40 @@ const SavedPasswords: React.FC<Props> = ({ showSnackbar }) => {
         }
         setShowPasswordInput(false);
         await decryptPassword();
+    };
+
+    const finishShare = async () => {
+        if (!selectedUserToShare || !decryptTarget || !decryptedPassword) {
+            showSnackbar('Missing data to share password', 'error');
+            setSelectedUserToShare(null);
+            setDecryptTarget(null);
+            setDecryptedPassword(null);
+            return;
+        }
+        try {
+            setLoading(true);
+            if (!selectedUserToShare.publicKey) {
+                showSnackbar('Selected user has no public key set', 'error');
+                return;
+            }
+            const encrypted = await PasswordService.encryptWithPublicKey(selectedUserToShare.publicKey || '', decryptedPassword);
+            const passwordToShare = { userId: selectedUserToShare.id || 0, encryptedPassword: encrypted };
+            const result = await PasswordService.sharePassword(decryptTarget.id || '', passwordToShare);
+            if (result) {
+                showSnackbar('Password shared successfully', 'success');
+                setSelectedUserToShare(null);
+                setDecryptTarget(null);
+                setDecryptedPassword(null);
+                await fetchData();
+            } else {
+                showSnackbar('Failed to share password', 'error');
+            }
+        } catch (error) {
+            const errorMessage = (error instanceof Error && error.message) ? error.message : 'Unknown error';
+            showSnackbar(errorMessage, 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -259,18 +295,18 @@ const SavedPasswords: React.FC<Props> = ({ showSnackbar }) => {
                                 .map(user => (
                                     <li key={user.id} style={{ listStyle: 'none', marginBottom: 4 }}>
                                         <Button
-                                            variant={selectedUserId === user.id ? 'contained' : 'text'}
+                                            variant={selectedUserToShare?.id === user.id ? 'contained' : 'text'}
                                             color="primary"
                                             fullWidth
                                             sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
-                                            onClick={() => user.id !== undefined && setSelectedUserId(user.id)}
+                                            onClick={() => user.id !== undefined && setSelectedUserToShare(user) && setDecryptTarget(selectedPassword)}
                                         >
                                             {user.firstName} {user.lastName} &nbsp; <span style={{ color: '#555' }}>{user.email}</span>
                                         </Button>
                                     </li>
                                 ))}
                         </ul>
-                        <Button variant="contained" color="success" sx={{ mr: 1 }} onClick={handleShareSubmit} disabled={!selectedUserId}>Share</Button>
+                        <Button variant="contained" color="success" sx={{ mr: 1 }} onClick={handleShareSubmit} disabled={!selectedUserToShare}>Share</Button>
                         <Button variant="outlined" onClick={() => setShowShareModal(false)}>Close</Button>
                     </Box>
                 </Modal>
@@ -344,12 +380,14 @@ const SavedPasswords: React.FC<Props> = ({ showSnackbar }) => {
                 {/* Prikaz dešifrovane lozinke */}
                 <Modal open={!!decryptedPassword} onClose={() => setDecryptedPassword(null)}>
                     <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '30%', bgcolor: 'background.paper', boxShadow: 24, p: 4, borderRadius: 2, textAlign: 'center' }}>
-                        <Typography variant="h6" sx={{ mb: 2 }}>Decrypted data</Typography>
+                        {!selectedUserToShare && <Typography variant="h6" sx={{ mb: 2 }}>Decrypted data</Typography>}
+                        {selectedUserToShare && <Typography variant="h6" sx={{ mb: 2 }}>Share with: {selectedUserToShare?.email}</Typography>}
 
-                        <Typography variant="body1" sx={{ mb: 2,textAlign: 'left' }}><span style={{ minWidth: '100px', display: 'inline-block', alignSelf: 'flex-start' }}><strong>Site:</strong></span> <span style={{ color: '#2e7d32' }}>{decryptTarget?.siteName}</span></Typography>
-                        <Typography variant="body1" sx={{ mb: 2,textAlign: 'left' }}><span style={{ minWidth: '100px', display: 'inline-block', alignSelf: 'flex-start' }}><strong>Username:</strong></span> <span style={{ color: '#2e7d32' }}>{decryptTarget?.username}</span></Typography>
-                        <Typography variant="body1" sx={{ mb: 2,textAlign: 'left' }}><span style={{ minWidth: '100px', display: 'inline-block', alignSelf: 'flex-start' }}><strong>Password:</strong></span> <span style={{ color: '#2e7d32' }}>{decryptedPassword}</span></Typography>
-                        <Button variant="contained" onClick={() => setDecryptedPassword(null)}>Close</Button>
+                        <Typography variant="body1" sx={{ mb: 2, textAlign: 'left' }}><span style={{ minWidth: '100px', display: 'inline-block', alignSelf: 'flex-start' }}><strong>Site:</strong></span> <span style={{ color: '#2e7d32' }}>{decryptTarget?.siteName}</span></Typography>
+                        <Typography variant="body1" sx={{ mb: 2, textAlign: 'left' }}><span style={{ minWidth: '100px', display: 'inline-block', alignSelf: 'flex-start' }}><strong>Username:</strong></span> <span style={{ color: '#2e7d32' }}>{decryptTarget?.username}</span></Typography>
+                        <Typography variant="body1" sx={{ mb: 2, textAlign: 'left' }}><span style={{ minWidth: '100px', display: 'inline-block', alignSelf: 'flex-start' }}><strong>Password:</strong></span> <span style={{ color: '#2e7d32' }}>{decryptedPassword}</span></Typography>
+                        <Button variant="contained" onClick={() => { setDecryptedPassword(null); setSelectedUserToShare(null); }}>Close</Button>
+                        {selectedUserToShare && <Button variant="contained" style={{ marginLeft: 50 }} onClick={() => finishShare()}>Share</Button>}
                     </Box>
                 </Modal>
                 {/* Prikaz unosa lozinke */}
