@@ -19,8 +19,8 @@ import { MoonIcon, SunIcon } from 'flowbite-react';
 import AuthService from '../services/AuthService';
 import { useUser } from '../context/UserContext';
 import PasswordService from '../services/PasswordService';
+import { UserRole } from '../models/User';
 
-const pages = ['Products', 'Pricing', 'Password manager'];
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
 interface NavBarProps {
@@ -30,6 +30,7 @@ interface NavBarProps {
 
 
 function NavBar({ toggleTheme, mode }: NavBarProps) {
+  const pages = ['Products', 'Pricing', 'Password manager'];
   const { user, setUser, logout } = useUser();
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
@@ -113,20 +114,26 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               onClose={handleCloseNavMenu}
               sx={{ display: { xs: 'block', md: 'none' } }}
             >
-              {pages.map((page) => (
-                <MenuItem
-                  key={page}
-                  onClick={() => {
-                    handleCloseNavMenu();
-                    // Navigacija na osnovu imena stranice
-                    if (page === 'Products') navigate('/products');
-                    else if (page === 'Pricing') navigate('/pricing');
-                    else if (page === 'Password manager') navigate('/password-manager');
-                  }}
-                >
-                  <Typography sx={{ textAlign: 'center' }}>{page}</Typography>
-                </MenuItem>
-              ))}
+              {pages.map((page) => {
+                // Sakrij "Password manager" ako korisnik nije REGULAR_USER
+                if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) {
+                  return null;
+                }
+                return (
+                  <MenuItem
+                    key={page}
+                    onClick={() => {
+                      handleCloseNavMenu();
+                      // Navigacija na osnovu imena stranice
+                      if (page === 'Products') navigate('/products');
+                      else if (page === 'Pricing') navigate('/pricing');
+                      else if (page === 'Password manager') navigate('/password-manager');
+                    }}
+                  >
+                    <Typography sx={{ textAlign: 'center' }}>{page}</Typography>
+                  </MenuItem>
+                );
+              })}
             </Menu>
           </Box>
 
@@ -162,8 +169,11 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             BSEP
           </Typography>
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
-            {pages.map((page) => (
-              <Button
+            {pages.map((page) => {
+              if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) {
+                return null;
+              }
+              return (<Button
                 key={page}
                 style={{ marginLeft: '10px' }}
                 onClick={() => {
@@ -175,8 +185,8 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
                 sx={{ my: 2, color: 'white', display: 'block' }}
               >
                 {page}
-              </Button>
-            ))}
+              </Button>)
+            })}
           </Box>
           {/* ...existing code... */}
           {!user?.twoFactorEnabled && (

@@ -8,6 +8,7 @@ interface UserContextType {
     user: User | null;
     setUser: (user: User | null) => void;
     logout: () => void;
+    loading: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -20,47 +21,58 @@ export const useUser = () => {
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
     const location = useLocation();
     const pagesNotToRedirect = ['/login', '/sign-up', '/verify-email', '/2fa'];
 
     useEffect(() => {
-        // Pokušaj učitati korisnika iz localStorage na mount
-        console.log('Checking for existing user session...');
-        AuthService.getMyInfo()
+        checkUserData();
+    }, [user]);
+
+    const fetchUserData = async () => {
+        setLoading(true);
+        if (isTokenExpired(localStorage.getItem('jwt') || '')) {
+            console.log('Token expired, logging out');
+            logout();
+            setLoading(false);
+            return;
+        }
+        await AuthService.getMyInfo()
             .then((userData) => {
                 if (localStorage.getItem('jwt'))
                     userData.token = localStorage.getItem('jwt');
                 setUserAndStore(userData);
-                // console.log('User session found:', userData);
-                if (!pagesNotToRedirect.includes(location.pathname) && location.pathname !== '/generate-key') {
-                    if (userData.role === UserRole.REGULAR_USER && (userData.publicKey == null || userData.publicKey === '')) {
-                        console.log('No public key found, redirecting to key generation');
-                        navigate('/generate-key');
-                    }
-                }
             })
             .catch(() => {
-                if (pagesNotToRedirect.includes(location.pathname)) return;
+                if (pagesNotToRedirect.includes(location.pathname)) {
+                    setLoading(false);
+                    return;
+                }
                 setUserAndStore(null);
                 console.log('No valid session, redirecting to login');
                 navigate('/login');
             });
-        const stored = localStorage.getItem('user');
-        if (stored) {
-            setUser(JSON.parse(stored));
+        setLoading(false);
+    }
+
+    const checkUserData = async () => {
+        if (!pagesNotToRedirect.includes(location.pathname) && location.pathname !== '/generate-key') {
+            if (user?.role === UserRole.REGULAR_USER && (user.publicKey == null || user.publicKey === '')) {
+                console.log('No public key found, redirecting to key generation');
+                navigate('/generate-key');
+            }
         }
-        if (user && isTokenExpired(localStorage.getItem('jwt') || '')) {
-            logout();
-            setUser({ id: 0, email: '', firstName: '', lastName: '', organization: '', twoFactorEnabled: false } as User);
-        }
+    }
+
+    useEffect(() => {
+        fetchUserData();
     }, [location]);
 
     const setUserAndStore = (u: User | null) => {
         if (u) {
-            // Prvo postavi u localStorage
+            console.log('Setting user and storing in localStorage:', u);
             localStorage.setItem('user', JSON.stringify(u));
-            // if (u.token) localStorage.setItem('jwt', u.token);
             setUser(u);
         } else {
             localStorage.removeItem('user');
@@ -85,7 +97,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
 
     return (
-        <UserContext.Provider value={{ user, setUser: setUserAndStore, logout }}>
+        <UserContext.Provider value={{ user, setUser: setUserAndStore, logout, loading }}>
             {children}
         </UserContext.Provider>
     );

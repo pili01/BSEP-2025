@@ -12,6 +12,8 @@ import Enable2FA from './pages/Enable2FA'
 import SavedPasswords from './pages/SavedPasswords'
 import { UserProvider } from './context/UserContext'
 import GenerateKeyPage from './pages/GenerateKeyPage'
+import ProtectedRoute from './components/ProtectedRoute'
+import { UserRole } from './models/User'
 
 function App() {
   const [mode, setMode] = useState<'dark' | 'light'>('dark');
@@ -29,42 +31,58 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <UserProvider>
-      {snackbars.map((snack, idx) => (
-        <Snackbar
-          key={snack.id}
-          open={true}
-          autoHideDuration={3000}
-          onClose={(_, reason) => {
-            // Zatvaraj samo kad istekne timeout ili kad korisnik klikne X
-            if (reason === 'timeout' || reason === 'clickaway') {
-              setSnackbars((prev) => prev.filter((s) => s.id !== snack.id));
-            }
-          }}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          sx={{ mb: `${idx * 60}px` }}
-        >
-          <Alert
-            onClose={() => setSnackbars((prev) => prev.filter((s) => s.id !== snack.id))}
-            severity={snack.severity}
-            sx={{ width: '100%' }}
+        {snackbars.map((snack, idx) => (
+          <Snackbar
+            key={snack.id}
+            open={true}
+            autoHideDuration={3000}
+            onClose={(_, reason) => {
+              // Zatvaraj samo kad istekne timeout ili kad korisnik klikne X
+              if (reason === 'timeout' || reason === 'clickaway') {
+                setSnackbars((prev) => prev.filter((s) => s.id !== snack.id));
+              }
+            }}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            sx={{ mb: `${idx * 60}px` }}
           >
-            {snack.message}
-          </Alert>
-        </Snackbar>
+            <Alert
+              onClose={() => setSnackbars((prev) => prev.filter((s) => s.id !== snack.id))}
+              severity={snack.severity}
+              sx={{ width: '100%' }}
+            >
+              {snack.message}
+            </Alert>
+          </Snackbar>
 
-      ))}
-      <NavBar toggleTheme={toggleTheme} mode={mode} />
-      <Routes>
-        <Route path='/' element={<h1>Home page</h1>} />
-        <Route path='/login' element={<Login showSnackbar={showSnackbar}/>} />
-        <Route path='/sign-up' element={<SignUp showSnackbar={showSnackbar} />} />
-        <Route path='/verify-email' element={<VerifyEmail showSnackbar={showSnackbar} />} />
-        <Route path='/2fa' element={<TwoFactorAuth showSnackbar={showSnackbar} />} />
-        <Route path='/enable-2fa' element={<Enable2FA showSnackbar={showSnackbar} />} />
-        <Route path='/password-manager' element={<SavedPasswords showSnackbar={showSnackbar} />} />
-        <Route path='/generate-key' element={<GenerateKeyPage showSnackbar={showSnackbar} />} />
-        <Route path='*' element={<h1>404 Not Found</h1>} />
-      </Routes>
+        ))}
+        <NavBar toggleTheme={toggleTheme} mode={mode} />
+        <Routes>
+          <Route path='/' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN, UserRole.REGULAR_USER, UserRole.CA_USER]}>
+              <h1>Home page</h1>
+            </ProtectedRoute>
+          } />
+          <Route path='/login' element={<Login showSnackbar={showSnackbar} />} />
+          <Route path='/sign-up' element={<SignUp showSnackbar={showSnackbar} />} />
+          <Route path='/verify-email' element={<VerifyEmail showSnackbar={showSnackbar} />} />
+          <Route path='/2fa' element={<TwoFactorAuth showSnackbar={showSnackbar} />} />
+          <Route path='/enable-2fa' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN, UserRole.REGULAR_USER, UserRole.CA_USER]}>
+              <Enable2FA showSnackbar={showSnackbar} />
+            </ProtectedRoute>
+          } />
+          <Route path='/password-manager' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
+              <SavedPasswords showSnackbar={showSnackbar} />
+            </ProtectedRoute>
+          } />
+          <Route path='/generate-key' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
+              <GenerateKeyPage showSnackbar={showSnackbar} />
+            </ProtectedRoute>
+          } />
+          <Route path='*' element={<h1>404 Not Found</h1>} />
+        </Routes>
       </UserProvider>
     </ThemeProvider>
   );
