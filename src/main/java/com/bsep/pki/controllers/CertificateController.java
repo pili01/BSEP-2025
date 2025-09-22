@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -115,9 +116,6 @@ public class CertificateController {
     }
 
 
-
-
-
     @GetMapping("/admin/all")
     public ResponseEntity<?> getAllCertificates(HttpServletRequest request) {
         try {
@@ -136,7 +134,6 @@ public class CertificateController {
             return new ResponseEntity<>("Error retrieving certificates: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
 
 
     @GetMapping("/ca/chain")
@@ -172,8 +169,6 @@ public class CertificateController {
     }
 
 
-
-
     @GetMapping("/user/my")
     public ResponseEntity<?> getMyEndEntityCertificates(HttpServletRequest request) {
         try {
@@ -190,8 +185,6 @@ public class CertificateController {
     }
 
 
-
-
     @PostMapping("/csr/upload-file")
     public ResponseEntity<String> uploadCsrWithFile(
             @RequestParam("file") MultipartFile file,
@@ -204,7 +197,7 @@ public class CertificateController {
             @RequestParam(value = "extendedKeyUsage", required = false) String extendedKeyUsage,
             @RequestParam(value = "notes", required = false) String notes,
             HttpServletRequest request) {
-        
+
         try {
 
             String token = getJwtFromRequest(request);
@@ -252,7 +245,7 @@ public class CertificateController {
 
 
             String pemContent = new String(file.getBytes());
-            
+
 
             CsrRequestDto csrDto = new CsrRequestDto();
             csrDto.setCsrPemContent(pemContent);
@@ -263,7 +256,6 @@ public class CertificateController {
             csrDto.setCaIssuerSerialNumber(caIssuerSerialNumber);
             csrDto.setKeyUsage(keyUsage != null ? keyUsage : "");
             csrDto.setExtendedKeyUsage(extendedKeyUsage != null ? extendedKeyUsage : "");
-
 
 
             CsrRequest savedRequest = certificateService.uploadCsr(csrDto, uploadingUser, targetUser);
@@ -351,9 +343,8 @@ public class CertificateController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-    
 
-    
+
     @GetMapping("/csr/pending")
     public ResponseEntity<List<CsrResponseDto>> getPendingCsrRequests(HttpServletRequest request) {
         try {
@@ -371,7 +362,7 @@ public class CertificateController {
 
             String userOrganization = jwtProvider.getOrganizationFromToken(token);
             List<CsrResponseDto> pendingRequests = certificateService.getPendingCsrRequests(userOrganization);
-            
+
             return new ResponseEntity<>(pendingRequests, HttpStatus.OK);
 
         } catch (Exception e) {
@@ -379,7 +370,7 @@ public class CertificateController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-    
+
     @GetMapping("/csr/user")
     public ResponseEntity<List<CsrResponseDto>> getUserCsrRequests(HttpServletRequest request) {
         try {
@@ -398,7 +389,7 @@ public class CertificateController {
 
             User user = optionalUser.get();
             List<CsrResponseDto> userRequests = certificateService.getCsrRequestsByUser(user);
-            
+
             return new ResponseEntity<>(userRequests, HttpStatus.OK);
 
         } catch (Exception e) {
@@ -406,7 +397,7 @@ public class CertificateController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-    
+
     @GetMapping("/csr/{id}")
     public ResponseEntity<CsrResponseDto> getCsrRequestById(@PathVariable Long id, HttpServletRequest request) {
         try {
@@ -427,7 +418,7 @@ public class CertificateController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-    
+
     @PostMapping("/csr/{id}/reject")
     public ResponseEntity<String> rejectCsrRequest(@PathVariable Long id, @RequestBody String reason, HttpServletRequest request) {
         try {
@@ -451,10 +442,10 @@ public class CertificateController {
             }
 
             User rejectingUser = optionalUser.get();
-            
+
 
             certificateService.rejectCsrRequest(id, reason, rejectingUser);
-            
+
             return new ResponseEntity<>("CSR request rejected successfully.", HttpStatus.OK);
 
         } catch (IllegalArgumentException e) {
@@ -464,6 +455,17 @@ public class CertificateController {
         } catch (Exception e) {
             e.printStackTrace();
             return new ResponseEntity<>("An error occurred while rejecting CSR request: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @GetMapping("/revoke/{serialNumber}")
+    public ResponseEntity<?> revoceCertificate(@PathVariable String serialNumber, HttpServletRequest request) {
+        try {
+            User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            certificateService.revokeCertificate(serialNumber, RevokedReason.KEY_COMPROMISE);
+            return ResponseEntity.ok("Certificate revoked successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

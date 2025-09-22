@@ -419,7 +419,7 @@ public class CertificateService {
         certBuilder.addExtension(Extension.cRLDistributionPoints, false, new CRLDistPoint(
                 new DistributionPoint[]{new DistributionPoint(
                         new DistributionPointName(
-                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, "https://localhost/api/crl"))
+                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, "https://localhost:8443/api/crl"))
                         ), null, null
                 )}
         ));
@@ -1088,7 +1088,7 @@ public class CertificateService {
         certBuilder.addExtension(Extension.cRLDistributionPoints, false, new CRLDistPoint(
                 new DistributionPoint[]{new DistributionPoint(
                         new DistributionPointName(
-                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, "https://localhost/api/crl"))
+                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, "https://localhost:8443/api/crl"))
                         ), null, null
                 )}
         ));

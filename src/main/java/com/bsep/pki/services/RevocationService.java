@@ -35,7 +35,7 @@ public class RevocationService {
             crlBuilder.addCRLEntry(
                     new BigInteger(cert.getSerialNumber()),
                     Date.from(cert.getRevokedAt().atZone(ZoneId.systemDefault()).toInstant()),
-                    Integer.parseInt(cert.getRevokedReason().toString())
+                    cert.getRevokedReason().ordinal() + 1
             );
         }
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(caPrivateKey);
