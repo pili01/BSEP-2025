@@ -232,11 +232,11 @@ public class CertificateController {
             String pemContent = new String(file.getBytes());
 
             // Simple parsing from CSR content
-            String commonName = extractCommonName(pemContent);
-            String organization = extractOrganization(pemContent);
-            String email = extractEmail(pemContent);
-            String keyUsage = extractKeyUsage(pemContent);
-            String extendedKeyUsage = extractExtendedKeyUsage(pemContent);
+            String commonName = certificateService.extractCommonName(pemContent);
+            String organization = certificateService.extractOrganization(pemContent);
+            String email = certificateService.extractEmail(pemContent);
+            String keyUsage = certificateService.extractKeyUsage(pemContent);
+            String extendedKeyUsage = certificateService.extractExtendedKeyUsage(pemContent);
 
             CsrRequestDto csrDto = new CsrRequestDto();
             csrDto.setCsrPemContent(pemContent);
@@ -498,160 +498,5 @@ public class CertificateController {
         return null;
     }
 
-    private String extractCommonName(String pemContent) {
-        try {
-            PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
-            X500Name subject = csr.getSubject();
-            String subjectString = subject.toString();
-            
-            // Parse CN from subject string like "CN=NoviCA, O=Security Inc., E=papovicognjen59@gmail.com"
-            int cnIndex = subjectString.indexOf("CN=");
-            if (cnIndex != -1) {
-                int start = cnIndex + 3;
-                int end = subjectString.indexOf(",", start);
-                if (end == -1) end = subjectString.length();
-                return subjectString.substring(start, end).trim();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "";
-    }
-
-    private String extractOrganization(String pemContent) {
-        try {
-            PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
-            X500Name subject = csr.getSubject();
-            String subjectString = subject.toString();
-            
-            // Parse O from subject string like "CN=NoviCA, O=Security Inc., E=papovicognjen59@gmail.com"
-            int oIndex = subjectString.indexOf("O=");
-            if (oIndex != -1) {
-                int start = oIndex + 2;
-                int end = subjectString.indexOf(",", start);
-                if (end == -1) end = subjectString.length();
-                return subjectString.substring(start, end).trim();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "";
-    }
-
-    private String extractEmail(String pemContent) {
-        try {
-            PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
-            X500Name subject = csr.getSubject();
-            String subjectString = subject.toString();
-            
-            // Parse E from subject string like "CN=NoviCA, O=Security Inc., E=papovicognjen59@gmail.com"
-            int eIndex = subjectString.indexOf("E=");
-            if (eIndex != -1) {
-                int start = eIndex + 2;
-                int end = subjectString.indexOf(",", start);
-                if (end == -1) end = subjectString.length();
-                return subjectString.substring(start, end).trim();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "";
-    }
-
-    private String extractKeyUsage(String pemContent) {
-        try {
-            PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
-            
-            // Look for keyUsage extension in attributes
-            org.bouncycastle.asn1.pkcs.Attribute[] attributes = csr.getAttributes();
-            for (org.bouncycastle.asn1.pkcs.Attribute attr : attributes) {
-                if (attr.getAttrType().equals(org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
-                    org.bouncycastle.asn1.ASN1Set attrValues = attr.getAttrValues();
-                    for (int i = 0; i < attrValues.size(); i++) {
-                        org.bouncycastle.asn1.x509.Extensions extensions = org.bouncycastle.asn1.x509.Extensions.getInstance(attrValues.getObjectAt(i));
-                        org.bouncycastle.asn1.x509.Extension keyUsageExt = extensions.getExtension(org.bouncycastle.asn1.x509.Extension.keyUsage);
-                        if (keyUsageExt != null) {
-                            org.bouncycastle.asn1.x509.KeyUsage keyUsage = org.bouncycastle.asn1.x509.KeyUsage.getInstance(keyUsageExt.getParsedValue());
-                            return keyUsageToString(keyUsage);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "";
-    }
-
-    private String extractExtendedKeyUsage(String pemContent) {
-        try {
-            PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
-            
-            // Look for extendedKeyUsage extension in attributes
-            org.bouncycastle.asn1.pkcs.Attribute[] attributes = csr.getAttributes();
-            for (org.bouncycastle.asn1.pkcs.Attribute attr : attributes) {
-                if (attr.getAttrType().equals(org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
-                    org.bouncycastle.asn1.ASN1Set attrValues = attr.getAttrValues();
-                    for (int i = 0; i < attrValues.size(); i++) {
-                        org.bouncycastle.asn1.x509.Extensions extensions = org.bouncycastle.asn1.x509.Extensions.getInstance(attrValues.getObjectAt(i));
-                        org.bouncycastle.asn1.x509.Extension extendedKeyUsageExt = extensions.getExtension(org.bouncycastle.asn1.x509.Extension.extendedKeyUsage);
-                        if (extendedKeyUsageExt != null) {
-                            org.bouncycastle.asn1.x509.ExtendedKeyUsage extendedKeyUsage = org.bouncycastle.asn1.x509.ExtendedKeyUsage.getInstance(extendedKeyUsageExt.getParsedValue());
-                            return extendedKeyUsageToString(extendedKeyUsage);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "";
-    }
-
-    private PKCS10CertificationRequest parseCsrFromPem(String pemContent) throws Exception {
-        try (java.io.StringReader stringReader = new java.io.StringReader(pemContent);
-             org.bouncycastle.util.io.pem.PemReader pemReader = new org.bouncycastle.util.io.pem.PemReader(stringReader)) {
-
-            org.bouncycastle.util.io.pem.PemObject pemObject = pemReader.readPemObject();
-            if (pemObject == null) {
-                throw new IllegalArgumentException("Invalid PEM content: no PEM object found");
-            }
-
-            if (!pemObject.getType().equals("CERTIFICATE REQUEST")) {
-                throw new IllegalArgumentException("Invalid PEM content: expected CERTIFICATE REQUEST, got " + pemObject.getType());
-            }
-
-            return new PKCS10CertificationRequest(pemObject.getContent());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to parse CSR from PEM: " + e.getMessage(), e);
-        }
-    }
-
-    private String keyUsageToString(org.bouncycastle.asn1.x509.KeyUsage keyUsage) {
-        java.util.List<String> usages = new java.util.ArrayList<>();
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.digitalSignature)) usages.add("digitalSignature");
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.nonRepudiation)) usages.add("nonRepudiation");
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.keyEncipherment)) usages.add("keyEncipherment");
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.dataEncipherment)) usages.add("dataEncipherment");
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.keyAgreement)) usages.add("keyAgreement");
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.keyCertSign)) usages.add("keyCertSign");
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.cRLSign)) usages.add("cRLSign");
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.encipherOnly)) usages.add("encipherOnly");
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.decipherOnly)) usages.add("decipherOnly");
-        return String.join(",", usages);
-    }
-
-    private String extendedKeyUsageToString(org.bouncycastle.asn1.x509.ExtendedKeyUsage extendedKeyUsage) {
-        java.util.List<String> usages = new java.util.ArrayList<>();
-        for (KeyPurposeId oid : extendedKeyUsage.getUsages()) {
-            if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_serverAuth)) usages.add("serverAuth");
-            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_clientAuth)) usages.add("clientAuth");
-            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_codeSigning)) usages.add("codeSigning");
-            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_emailProtection)) usages.add("emailProtection");
-            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_timeStamping)) usages.add("timeStamping");
-            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_OCSPSigning)) usages.add("ocspSigning");
-        }
-        return String.join(",", usages);
-    }
 
 }
