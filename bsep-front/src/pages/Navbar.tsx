@@ -11,15 +11,13 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
-import AppLogo from '../assets/logo.png'
+import AppLogo from '../assets/logo.png';
 import Add from '@mui/icons-material/Add';
 import Assignment from '@mui/icons-material/Assignment';
-// import WarningIcon from '@mui/icons-material/WarningAmber';
+import VpnKeyIcon from '@mui/icons-material/VpnKey'; // ✅ dodato
 import { useNavigate } from 'react-router-dom';
 import { MoonIcon, SunIcon } from 'flowbite-react';
-import AuthService from '../services/AuthService';
 import { useUser } from '../context/UserContext';
-import PasswordService from '../services/PasswordService';
 import { UserRole } from '../models/User';
 
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
@@ -29,13 +27,11 @@ interface NavBarProps {
   mode: 'light' | 'dark';
 }
 
-
 function NavBar({ toggleTheme, mode }: NavBarProps) {
   const pages = ['Products', 'Pricing', 'Password manager'];
-  const { user, setUser, logout } = useUser();
+  const { user, logout } = useUser();
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
-  const [twoFaEnabled, setTwoFaEnabled] = React.useState(false); // Pretpostavi da se status dobija iz AuthService ili user contexta
   const navigate = useNavigate();
 
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -44,30 +40,29 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
   const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElUser(event.currentTarget);
   };
-
-  const handleCloseNavMenu = () => {
-    setAnchorElNav(null);
-  };
-
-  const handleCloseUserMenu = () => {
-    setAnchorElUser(null);
-  };
+  const handleCloseNavMenu = () => setAnchorElNav(null);
+  const handleCloseUserMenu = () => setAnchorElUser(null);
 
   return (
     <AppBar position="static" style={{ borderRadius: '5px 5px 10px 10px' }}>
       <Container maxWidth="xl">
         <Toolbar disableGutters>
+          {/* Logo desktop */}
           <Box
             component="img"
             src={AppLogo}
             alt="Logo"
-            onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate('/');
+            }}
             sx={{
-              width: { xs: 40, md: 70 }, // širina 40px na malim, 70px na većim ekranima
+              width: { xs: 40, md: 70 },
               height: 'auto',
               borderRadius: 2,
               display: { xs: 'none', md: 'flex' },
-              mr: 1
+              mr: 1,
+              cursor: 'pointer',
             }}
           />
           <Typography
@@ -88,12 +83,11 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             BSEP
           </Typography>
 
+          {/* Hamburger meni mobilni */}
           <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
             <IconButton
               size="large"
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
+              aria-label="open nav menu"
               onClick={handleOpenNavMenu}
               color="inherit"
             >
@@ -102,30 +96,20 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             <Menu
               id="menu-appbar"
               anchorEl={anchorElNav}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'left',
-              }}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
               keepMounted
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'left',
-              }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
               open={Boolean(anchorElNav)}
               onClose={handleCloseNavMenu}
               sx={{ display: { xs: 'block', md: 'none' } }}
             >
               {pages.map((page) => {
-                // Sakrij "Password manager" ako korisnik nije REGULAR_USER
-                if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) {
-                  return null;
-                }
+                if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) return null;
                 return (
                   <MenuItem
                     key={page}
                     onClick={() => {
                       handleCloseNavMenu();
-                      // Navigacija na osnovu imena stranice
                       if (page === 'Products') navigate('/products');
                       else if (page === 'Pricing') navigate('/pricing');
                       else if (page === 'Password manager') navigate('/password-manager');
@@ -135,27 +119,40 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
                   </MenuItem>
                 );
               })}
+              {user && (
+                <MenuItem
+                  onClick={() => {
+                    handleCloseNavMenu();
+                    navigate('/sessions');
+                  }}
+                >
+                  <Typography sx={{ textAlign: 'center' }}>Sessions</Typography>
+                </MenuItem>
+              )}
             </Menu>
           </Box>
 
+          {/* Logo mobilni */}
           <Box
             component="img"
             src={AppLogo}
             alt="Logo"
-            onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate('/');
+            }}
             sx={{
-              width: { xs: 40, md: 70 }, // širina 40px na malim, 70px na većim ekranima
+              width: { xs: 40, md: 70 },
               height: 'auto',
               borderRadius: 2,
               display: { xs: 'flex', md: 'none' },
-              mr: 1
+              mr: 1,
+              cursor: 'pointer',
             }}
           />
           <Typography
             variant="h5"
             noWrap
-            component="a"
-            href="#app-bar-with-responsive-menu"
             sx={{
               mr: 2,
               display: { xs: 'flex', md: 'none' },
@@ -169,27 +166,40 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
           >
             BSEP
           </Typography>
+
+          {/* Glavni meni desktop */}
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
             {pages.map((page) => {
-              if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) {
-                return null;
-              }
-              return (<Button
-                key={page}
-                style={{ marginLeft: '10px' }}
-                onClick={() => {
-                  handleCloseNavMenu();
-                  if (page === 'Products') navigate('/products');
-                  else if (page === 'Pricing') navigate('/pricing');
-                  else if (page === 'Password manager') navigate('/password-manager');
-                }}
-                sx={{ my: 2, color: 'white', display: 'block' }}
-              >
-                {page}
-              </Button>)
+              if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) return null;
+              return (
+                <Button
+                  key={page}
+                  style={{ marginLeft: '10px' }}
+                  onClick={() => {
+                    handleCloseNavMenu();
+                    if (page === 'Products') navigate('/products');
+                    else if (page === 'Pricing') navigate('/pricing');
+                    else if (page === 'Password manager') navigate('/password-manager');
+                  }}
+                  sx={{ my: 2, color: 'white', display: 'block' }}
+                >
+                  {page}
+                </Button>
+              );
             })}
           </Box>
-          {/* ...existing code... */}
+
+          {/* Dugmad za akcije */}
+          {user && (
+            <Button
+              color="primary"
+              startIcon={<VpnKeyIcon />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/sessions')}
+            >
+              Sessions
+            </Button>
+          )}
           {user?.role === UserRole.ADMIN && (
             <Button
               color="primary"
@@ -249,44 +259,50 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               Enable 2FA
             </Button>
           )}
-          <Box sx={{ flexGrow: 0 }}>
+
+          {/* Profil */}
+          <Box sx={{ flexGrow: 0, ml: 2 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <Avatar sx={{
-                  backgroundColor: mode === 'dark' ? 'white' : 'inherit',
-                  border: mode === 'light' ? '1px solid white' : 'none'
-                }} alt={user?.firstName} src="/static/images/avatar/3.jpg" />
+                <Avatar
+                  sx={{
+                    backgroundColor: mode === 'dark' ? 'white' : 'inherit',
+                    border: mode === 'light' ? '1px solid white' : 'none',
+                  }}
+                  alt={user?.firstName}
+                />
               </IconButton>
             </Tooltip>
-
             <Menu
               sx={{ mt: '45px' }}
               id="menu-appbar"
               anchorEl={anchorElUser}
-              anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
               keepMounted
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               open={Boolean(anchorElUser)}
               onClose={handleCloseUserMenu}
             >
-              <Button color="inherit" style={{ transform: 'scale(0.9)' }} onClick={toggleTheme}>
-                {mode === 'dark' ? <SunIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} /> : <MoonIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} />}
+              <Button
+                color="inherit"
+                style={{ transform: 'scale(0.9)' }}
+                onClick={toggleTheme}
+              >
+                {mode === 'dark' ? (
+                  <SunIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} />
+                ) : (
+                  <MoonIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} />
+                )}
                 {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
               </Button>
-
               {settings.map((setting) => (
-                <MenuItem key={setting} onClick={() => {
-                  handleCloseUserMenu();
-                  if (setting === 'Logout') {
-                    logout();
-                  }
-                }}>
+                <MenuItem
+                  key={setting}
+                  onClick={() => {
+                    handleCloseUserMenu();
+                    if (setting === 'Logout') logout();
+                  }}
+                >
                   <Typography sx={{ textAlign: 'center' }}>{setting}</Typography>
                 </MenuItem>
               ))}
@@ -297,4 +313,5 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
     </AppBar>
   );
 }
+
 export default NavBar;

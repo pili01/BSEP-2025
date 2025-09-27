@@ -86,9 +86,27 @@ class AuthService {
 		return await this.handleResponse(response, 'Failed to verify 2fa code');
 	}
 
-	static logout() {
-		localStorage.removeItem('jwt');
-	}
+	static async logout() {
+    const jwt = localStorage.getItem('jwt');
+    if (jwt) {
+        try {
+            const response = await fetch(`${API_URL}/auth/logout`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${jwt}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (response.status < 200 || response.status >= 300) {
+                console.warn('Backend logout failed, but continuing with local logout');
+            }
+        } catch (error) {
+            console.warn('Backend logout request failed:', error);
+        }
+    }
+
+    localStorage.removeItem('jwt');
+}
 
 	static async handleResponse(response: Response, defaultErrorMessage: string) {
 		if (response.status < 200 || response.status >= 300) {

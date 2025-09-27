@@ -83,9 +83,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const logout = () => {
-        setUserAndStore(null);
-    };
+    const logout = async () => {
+    try {
+        await AuthService.logout(); 
+    } catch (error) {
+        console.warn('Backend logout failed:', error);
+    }
+    setUserAndStore(null);
+};
 
     function isTokenExpired(token: string): boolean {
         if (!token) return true;

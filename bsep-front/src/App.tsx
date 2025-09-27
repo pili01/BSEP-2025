@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import NavBar from './pages/Navbar'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useNavigate } from 'react-router-dom'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
@@ -10,20 +10,25 @@ import VerifyEmail from './pages/VerifyEmail'
 import TwoFactorAuth from './pages/TwoFactorAuth'
 import Enable2FA from './pages/Enable2FA'
 import SavedPasswords from './pages/SavedPasswords'
-import { UserProvider } from './context/UserContext'
+///novo///
+import { UserProvider, useUser } from './context/UserContext'
+///novo///
 import GenerateKeyPage from './pages/GenerateKeyPage'
 import CreateCSR from './pages/CreateCSR'
 import CSRRequests from './pages/CSRRequests'
+import SessionsPage from './pages/SessionsPage';
 import AdminCertificates from './pages/AdminCertificates'
 import CACertificates from './pages/CACertificates'
 import UserCertificates from './pages/UserCertificates'
 import ProtectedRoute from './components/ProtectedRoute'
 import { UserRole } from './models/User'
 
-function App() {
+function AppContent() {
   const [mode, setMode] = useState<'dark' | 'light'>('dark');
   const theme = createTheme({ palette: { mode } });
   const [snackbars, setSnackbars] = useState<Array<{ id: number, message: string, severity: 'success' | 'error' | 'info' | 'warning' }>>([]);
+  const navigate = useNavigate();
+  const { logout } = useUser();
 
   const toggleTheme = () => {
     setMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -33,70 +38,89 @@ function App() {
     setSnackbars((prev) => [...prev, { id: Date.now(), message, severity }]);
   };
 
+  useEffect(() => {
+    const handleSessionRevoked = (event: any) => {
+      if (event.reason?.message?.includes('Session revoked') || 
+          event.reason?.message?.includes('Your session has been revoked')) {
+        showSnackbar('Your session has been revoked by an administrator', 'warning');
+        logout();
+        navigate('/login');
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleSessionRevoked);
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleSessionRevoked);
+    };
+  }, [logout, navigate]);
+
   return (
     <ThemeProvider theme={theme}>
-      <UserProvider>
-        {snackbars.map((snack, idx) => (
-          <Snackbar
-            key={snack.id}
-            open={true}
-            autoHideDuration={3000}
-            onClose={(_, reason) => {
-              // Zatvaraj samo kad istekne timeout ili kad korisnik klikne X
-              if (reason === 'timeout' || reason === 'clickaway') {
-                setSnackbars((prev) => prev.filter((s) => s.id !== snack.id));
-              }
-            }}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-            sx={{ mb: `${idx * 60}px` }}
+      {snackbars.map((snack, idx) => (
+        <Snackbar
+          key={snack.id}
+          open={true}
+          autoHideDuration={3000}
+          onClose={(_, reason) => {
+            if (reason === 'timeout' || reason === 'clickaway') {
+              setSnackbars((prev) => prev.filter((s) => s.id !== snack.id));
+            }
+          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          sx={{ mb: `${idx * 60}px` }}
+        >
+          <Alert
+            onClose={() => setSnackbars((prev) => prev.filter((s) => s.id !== snack.id))}
+            severity={snack.severity}
+            sx={{ width: '100%' }}
           >
-            <Alert
-              onClose={() => setSnackbars((prev) => prev.filter((s) => s.id !== snack.id))}
-              severity={snack.severity}
-              sx={{ width: '100%' }}
-            >
-              {snack.message}
-            </Alert>
-          </Snackbar>
-
-        ))}
-        <NavBar toggleTheme={toggleTheme} mode={mode} />
-        <Routes>
-          <Route path='/' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN, UserRole.REGULAR_USER, UserRole.CA_USER]}>
-              <h1>Home page</h1>
-            </ProtectedRoute>
-          } />
-          <Route path='/login' element={<Login showSnackbar={showSnackbar} />} />
-          <Route path='/sign-up' element={<SignUp showSnackbar={showSnackbar} />} />
-          <Route path='/verify-email' element={<VerifyEmail showSnackbar={showSnackbar} />} />
-          <Route path='/2fa' element={<TwoFactorAuth showSnackbar={showSnackbar} />} />
-          <Route path='/enable-2fa' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN, UserRole.REGULAR_USER, UserRole.CA_USER]}>
-              <Enable2FA showSnackbar={showSnackbar} />
-            </ProtectedRoute>
-          } />
-          <Route path='/password-manager' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
-              <SavedPasswords showSnackbar={showSnackbar} />
-            </ProtectedRoute>
-          } />
-          <Route path='/generate-key' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
-              <GenerateKeyPage showSnackbar={showSnackbar} />
-            </ProtectedRoute>
-          } />
-          <Route path='/create-csr' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
-              <CreateCSR />
-            </ProtectedRoute>
-          } />
-          <Route path='/csr-requests' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
-              <CSRRequests />
-            </ProtectedRoute>
-          } />
-          <Route path='/admin-certificates' element={
+            {snack.message}
+          </Alert>
+        </Snackbar>
+      ))}
+      <NavBar toggleTheme={toggleTheme} mode={mode} />
+      <Routes>
+        <Route path='/' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN, UserRole.REGULAR_USER, UserRole.CA_USER]}>
+            <h1>Home page</h1>
+          </ProtectedRoute>
+        } />
+        <Route path='/login' element={<Login showSnackbar={showSnackbar} />} />
+        <Route path='/sign-up' element={<SignUp showSnackbar={showSnackbar} />} />
+        <Route path='/verify-email' element={<VerifyEmail showSnackbar={showSnackbar} />} />
+        <Route path='/2fa' element={<TwoFactorAuth showSnackbar={showSnackbar} />} />
+        <Route path='/enable-2fa' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN, UserRole.REGULAR_USER, UserRole.CA_USER]}>
+            <Enable2FA showSnackbar={showSnackbar} />
+          </ProtectedRoute>
+        } />
+        <Route path='/password-manager' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
+            <SavedPasswords showSnackbar={showSnackbar} />
+          </ProtectedRoute>
+        } />
+        <Route path='/generate-key' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
+            <GenerateKeyPage showSnackbar={showSnackbar} />
+          </ProtectedRoute>
+        } />
+        <Route path='/create-csr' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
+            <CreateCSR />
+          </ProtectedRoute>
+        } />
+        <Route path='/csr-requests' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
+            <CSRRequests />
+          </ProtectedRoute>
+        } />
+        <Route path='/sessions' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN, UserRole.REGULAR_USER, UserRole.CA_USER]}>
+            <SessionsPage showSnackbar={showSnackbar} />
+          </ProtectedRoute>
+        } />
+        <Route path='/admin-certificates' element={
             <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}>
               <AdminCertificates />
             </ProtectedRoute>
@@ -111,10 +135,17 @@ function App() {
               <UserCertificates />
             </ProtectedRoute>
           } />
-          <Route path='*' element={<h1>404 Not Found</h1>} />
-        </Routes>
-      </UserProvider>
+        <Route path='*' element={<h1>404 Not Found</h1>} />
+      </Routes>   
     </ThemeProvider>
+  );
+}
+
+function App() {
+  return (
+    <UserProvider>
+      <AppContent />
+    </UserProvider>
   );
 }
 
