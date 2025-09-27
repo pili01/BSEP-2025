@@ -13,8 +13,12 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AppLogo from '../assets/logo.png'
 import Add from '@mui/icons-material/Add';
+<<<<<<< HEAD
 // Uvezi novu ikonicu za sesije
 import VpnKeyIcon from '@mui/icons-material/VpnKey'; 
+=======
+import Assignment from '@mui/icons-material/Assignment';
+>>>>>>> main
 // import WarningIcon from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
 import { MoonIcon, SunIcon } from 'flowbite-react';
@@ -144,6 +148,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             </Menu>
           </Box>
 
+<<<<<<< HEAD
           <Box
             component="img"
             src={AppLogo}
@@ -246,6 +251,128 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
                 }} alt={user?.firstName} src="/static/images/avatar/3.jpg" />
               </IconButton>
             </Tooltip>
+=======
+          <Box
+            component="img"
+            src={AppLogo}
+            alt="Logo"
+            onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
+            sx={{
+              width: { xs: 40, md: 70 }, // širina 40px na malim, 70px na većim ekranima
+              height: 'auto',
+              borderRadius: 2,
+              display: { xs: 'flex', md: 'none' },
+              mr: 1
+            }}
+          />
+          <Typography
+            variant="h5"
+            noWrap
+            component="a"
+            href="#app-bar-with-responsive-menu"
+            sx={{
+              mr: 2,
+              display: { xs: 'flex', md: 'none' },
+              flexGrow: 1,
+              fontFamily: 'monospace',
+              fontWeight: 700,
+              letterSpacing: '.3rem',
+              color: 'inherit',
+              textDecoration: 'none',
+            }}
+          >
+            BSEP
+          </Typography>
+          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
+            {pages.map((page) => {
+              if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) {
+                return null;
+              }
+              return (<Button
+                key={page}
+                style={{ marginLeft: '10px' }}
+                onClick={() => {
+                  handleCloseNavMenu();
+                  if (page === 'Products') navigate('/products');
+                  else if (page === 'Pricing') navigate('/pricing');
+                  else if (page === 'Password manager') navigate('/password-manager');
+                }}
+                sx={{ my: 2, color: 'white', display: 'block' }}
+              >
+                {page}
+              </Button>)
+            })}
+          </Box>
+          {/* ...existing code... */}
+          {user?.role === UserRole.ADMIN && (
+            <Button
+              color="primary"
+              startIcon={<Assignment />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/admin-certificates')}
+            >
+              Certificates
+            </Button>
+          )}
+          {user?.role === UserRole.CA_USER && (
+            <Button
+              color="secondary"
+              startIcon={<Assignment />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/ca-certificates')}
+            >
+              Certificates
+            </Button>
+          )}
+          {user?.role === UserRole.REGULAR_USER && (
+            <Button
+              color="primary"
+              startIcon={<Assignment />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/my-certificates')}
+            >
+              Certificates
+            </Button>
+          )}
+          {user?.role === UserRole.REGULAR_USER && (
+            <Button
+              color="primary"
+              startIcon={<Add />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/create-csr')}
+            >
+              Create CSR
+            </Button>
+          )}
+          {user?.role === UserRole.CA_USER && (
+            <Button
+              color="secondary"
+              startIcon={<Add />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/csr-requests')}
+            >
+              CSR Requests
+            </Button>
+          )}
+          {!user?.twoFactorEnabled && (
+            <Button
+              color="warning"
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/enable-2fa')}
+            >
+              Enable 2FA
+            </Button>
+          )}
+          <Box sx={{ flexGrow: 0 }}>
+            <Tooltip title="Open settings">
+              <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
+                <Avatar sx={{
+                  backgroundColor: mode === 'dark' ? 'white' : 'inherit',
+                  border: mode === 'light' ? '1px solid white' : 'none'
+                }} alt={user?.firstName} src="/static/images/avatar/3.jpg" />
+              </IconButton>
+            </Tooltip>
+>>>>>>> main
 
             <Menu
               sx={{ mt: '45px' }}
