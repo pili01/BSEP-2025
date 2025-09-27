@@ -24,5 +24,6 @@ public class CsrResponseDto {
     private String extendedKeyUsage;
     private long validityInDays;
     private String caIssuerSerialNumber;
+    private String csrPemContent;
 
 }

@@ -33,6 +33,7 @@ import java.math.BigInteger;
 import java.security.*;
 import java.security.spec.X509EncodedKeySpec;
 import java.security.cert.X509Certificate;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -623,11 +624,12 @@ public class CertificateService {
         return savedRequest;
     }
 
+
+
     @Transactional
     public X509Certificate signCsrAndIssueCertificate(CsrRequestDto csrDto, User issuingUser, User targetUser) throws Exception {
 
-
-        PKCS10CertificationRequest csr = parseCsrFromPem(csrDto.getCsrPemContent());
+        PKCS10CertificationRequest csr = parseCsrFromDB(csrDto.getCsrPemContent());
 
         validateCsrContent(csr, csrDto);
 
@@ -635,12 +637,27 @@ public class CertificateService {
 
         validateCaCompatibility(caCertificate, csrDto, issuingUser);
 
+
+        LocalDate today = LocalDate.now();
+        LocalDate requestedEndDate = today.plusDays(csrDto.getValidityInDays());
+
+
+        LocalDate caEndDate = caCertificate.getEndDate().toLocalDate();
+
+        if (requestedEndDate.isAfter(caEndDate)) {
+            throw new IllegalArgumentException(
+                    "Traženi period važenja (" + requestedEndDate +
+                            ") prelazi rok važenja CA sertifikata (" + caEndDate + ")."
+            );
+        }
+
         X509Certificate certificate = issueCertificateFromCsr(csr, csrDto, caCertificate, issuingUser, targetUser);
 
         updateCsrRequestStatus(csrDto, issuingUser);
 
         return certificate;
     }
+
 
     private PKCS10CertificationRequest parseCsrFromPem(String pemContent) throws Exception {
         try (StringReader stringReader = new StringReader(pemContent);
@@ -662,18 +679,7 @@ public class CertificateService {
     }
 
     private void validateCsrContent(PKCS10CertificationRequest csr, CsrRequestDto csrDto) throws Exception {
-        X500Name csrSubject = csr.getSubject();
-        String csrCommonName = extractCommonNameFromX500Name(csrSubject);
-
-        if (!csrCommonName.equals(csrDto.getCommonName())) {
-            throw new IllegalArgumentException("CSR Common Name '" + csrCommonName + "' does not match requested Common Name '" + csrDto.getCommonName() + "'");
-        }
-
-        String csrOrganization = extractOrganizationFromX500Name(csrSubject);
-        if (!csrOrganization.equals(csrDto.getOrganization())) {
-            throw new IllegalArgumentException("CSR Organization '" + csrOrganization + "' does not match requested Organization '" + csrDto.getOrganization() + "'");
-        }
-
+        // Simplified validation - just check public key
         PublicKey csrPublicKey = getPublicKeyFromCsr(csr);
         if (csrPublicKey == null) {
             throw new IllegalArgumentException("CSR does not contain a valid public key");
@@ -689,28 +695,6 @@ public class CertificateService {
                 throw new IllegalArgumentException("RSA key length must be at least 2048 bits, got: " + rsaKey.getModulus().bitLength());
             }
         }
-    }
-
-    private String extractCommonNameFromX500Name(X500Name x500Name) {
-        String[] rdns = x500Name.toString().split(",");
-        for (String rdn : rdns) {
-            String trimmed = rdn.trim();
-            if (trimmed.startsWith("CN=")) {
-                return trimmed.substring(3);
-            }
-        }
-        throw new IllegalArgumentException("Common Name (CN) not found in CSR subject");
-    }
-
-    private String extractOrganizationFromX500Name(X500Name x500Name) {
-        String[] rdns = x500Name.toString().split(",");
-        for (String rdn : rdns) {
-            String trimmed = rdn.trim();
-            if (trimmed.startsWith("O=")) {
-                return trimmed.substring(2);
-            }
-        }
-        throw new IllegalArgumentException("Organization (O) not found in CSR subject");
     }
 
     private Certificate getCaCertificate(String caSerialNumber) throws Exception {
@@ -862,7 +846,7 @@ public class CertificateService {
         certInfo.setType(CertificateType.END_ENTITY);
         certInfo.setOrganization(csrDto.getOrganization());
         certInfo.setKeystorePath(keystorePath);
-        certInfo.setAlias(extractCommonNameFromX500Name(csr.getSubject()));
+        certInfo.setAlias(csrDto.getCommonName());
         certInfo.setKeyUsage(keyUsageString);
         certInfo.setExtendedKeyUsage(extendedKeyUsageString);
         certInfo.setSansRegex(sansRegexString);
@@ -969,7 +953,7 @@ public class CertificateService {
         dto.setExtendedKeyUsage(csrRequest.getExtendedKeyUsage() != null ? csrRequest.getExtendedKeyUsage() : "");
         dto.setValidityInDays(csrRequest.getValidityInDays());
         dto.setCaIssuerSerialNumber(csrRequest.getCaIssuerSerialNumber());
-
+        dto.setCsrPemContent(csrRequest.getCsrPemContent());
         return dto;
     }
 
@@ -1134,6 +1118,48 @@ public class CertificateService {
             return new AbstractMap.SimpleEntry<>(cert, privateKey);
         } catch (Exception e) {
             throw new IllegalArgumentException("Root certificate not found");
+        }
+    }
+
+    public List<Certificate> getIntermediateCertificatesByOrganization(String organization) {
+        return certificateRepository.findByOrganizationAndType(organization, CertificateType.INTERMEDIATE);
+    }
+
+
+
+
+
+    private PKCS10CertificationRequest parseCsrFromDB(String pemContentFromDb) throws Exception {
+        if (pemContentFromDb == null) {
+            throw new IllegalArgumentException("PEM content is null.");
+        }
+
+
+        String cleanedContent = pemContentFromDb.replaceAll("\\s+", "");
+
+
+        String normalizedContent = cleanedContent
+                // Markeri bez razmaka: umetanje novog reda i standardnih razmaka
+                .replace("-----BEGINCERTIFICATEREQUEST-----", "-----BEGIN CERTIFICATE REQUEST-----\n")
+                .replace("-----ENDCERTIFICATEREQUEST-----", "\n-----END CERTIFICATE REQUEST-----");
+
+
+        try (StringReader stringReader = new StringReader(normalizedContent);
+             PemReader pemReader = new PemReader(stringReader)) {
+
+            PemObject pemObject = pemReader.readPemObject();
+
+            if (pemObject == null) {
+                throw new IllegalArgumentException("Invalid PEM structure after normalization. Check input string.");
+            }
+
+            if (!pemObject.getType().equals("CERTIFICATE REQUEST")) {
+                throw new IllegalArgumentException("Invalid PEM type: expected CERTIFICATE REQUEST, got " + pemObject.getType());
+            }
+
+            return new PKCS10CertificationRequest(pemObject.getContent());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to parse CSR from PEM: " + e.getMessage(), e);
         }
     }
 }

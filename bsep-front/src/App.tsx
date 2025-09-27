@@ -12,6 +12,8 @@ import Enable2FA from './pages/Enable2FA'
 import SavedPasswords from './pages/SavedPasswords'
 import { UserProvider } from './context/UserContext'
 import GenerateKeyPage from './pages/GenerateKeyPage'
+import CreateCSR from './pages/CreateCSR'
+import CSRRequests from './pages/CSRRequests'
 import ProtectedRoute from './components/ProtectedRoute'
 import { UserRole } from './models/User'
 
@@ -79,6 +81,16 @@ function App() {
           <Route path='/generate-key' element={
             <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
               <GenerateKeyPage showSnackbar={showSnackbar} />
+            </ProtectedRoute>
+          } />
+          <Route path='/create-csr' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER]}>
+              <CreateCSR />
+            </ProtectedRoute>
+          } />
+          <Route path='/csr-requests' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
+              <CSRRequests />
             </ProtectedRoute>
           } />
           <Route path='*' element={<h1>404 Not Found</h1>} />

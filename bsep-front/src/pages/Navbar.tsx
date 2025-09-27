@@ -13,7 +13,7 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AppLogo from '../assets/logo.png'
 import Add from '@mui/icons-material/Add';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+// import WarningIcon from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
 import { MoonIcon, SunIcon } from 'flowbite-react';
 import AuthService from '../services/AuthService';
@@ -189,10 +189,29 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             })}
           </Box>
           {/* ...existing code... */}
+          {user?.role === UserRole.REGULAR_USER && (
+            <Button
+              color="primary"
+              startIcon={<Add />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/create-csr')}
+            >
+              Create CSR
+            </Button>
+          )}
+          {user?.role === UserRole.CA_USER && (
+            <Button
+              color="secondary"
+              startIcon={<Add />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/csr-requests')}
+            >
+              CSR Requests
+            </Button>
+          )}
           {!user?.twoFactorEnabled && (
             <Button
               color="warning"
-              startIcon={<WarningAmberIcon />}
               sx={{ ml: 2, fontWeight: 'bold' }}
               onClick={() => navigate('/enable-2fa')}
             >
