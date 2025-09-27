@@ -120,9 +120,7 @@ function AppContent() {
             <SessionsPage showSnackbar={showSnackbar} />
           </ProtectedRoute>
         } />
-        <Route path='*' element={<h1>404 Not Found</h1>} />
-      </Routes>
-          <Route path='/admin-certificates' element={
+        <Route path='/admin-certificates' element={
             <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}>
               <AdminCertificates />
             </ProtectedRoute>
@@ -137,6 +135,8 @@ function AppContent() {
               <UserCertificates />
             </ProtectedRoute>
           } />
+        <Route path='*' element={<h1>404 Not Found</h1>} />
+      </Routes>   
     </ThemeProvider>
   );
 }
