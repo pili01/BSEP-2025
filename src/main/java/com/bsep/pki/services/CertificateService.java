@@ -3,8 +3,8 @@ package com.bsep.pki.services;
 import com.bsep.pki.dtos.CertificateRequestDto;
 import com.bsep.pki.dtos.CsrRequestDto;
 import com.bsep.pki.dtos.CsrResponseDto;
-import com.bsep.pki.models.*;
 import com.bsep.pki.models.Certificate;
+import com.bsep.pki.models.*;
 import com.bsep.pki.repositories.CertificateRepository;
 import com.bsep.pki.repositories.CertificateTemplateRepository;
 import com.bsep.pki.repositories.CsrRequestRepository;
@@ -19,20 +19,14 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemReader;
-
-import java.io.StringReader;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.math.BigInteger;
 import java.security.*;
-import java.security.spec.X509EncodedKeySpec;
 import java.security.cert.X509Certificate;
+import java.security.spec.X509EncodedKeySpec;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;

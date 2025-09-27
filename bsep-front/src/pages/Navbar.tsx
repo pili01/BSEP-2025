@@ -13,6 +13,8 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AppLogo from '../assets/logo.png'
 import Add from '@mui/icons-material/Add';
+// Uvezi novu ikonicu za sesije
+import VpnKeyIcon from '@mui/icons-material/VpnKey'; 
 // import WarningIcon from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
 import { MoonIcon, SunIcon } from 'flowbite-react';
@@ -24,246 +26,263 @@ import { UserRole } from '../models/User';
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
 interface NavBarProps {
-  toggleTheme: () => void;
-  mode: 'light' | 'dark';
+  toggleTheme: () => void;
+  mode: 'light' | 'dark';
 }
 
 
 function NavBar({ toggleTheme, mode }: NavBarProps) {
-  const pages = ['Products', 'Pricing', 'Password manager'];
-  const { user, setUser, logout } = useUser();
-  const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
-  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
-  const [twoFaEnabled, setTwoFaEnabled] = React.useState(false); // Pretpostavi da se status dobija iz AuthService ili user contexta
-  const navigate = useNavigate();
+  const pages = ['Products', 'Pricing', 'Password manager'];
+  const { user, setUser, logout } = useUser();
+  const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
+  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+  const [twoFaEnabled, setTwoFaEnabled] = React.useState(false); // Pretpostavi da se status dobija iz AuthService ili user contexta
+  const navigate = useNavigate();
 
-  const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorElNav(event.currentTarget);
-  };
-  const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorElUser(event.currentTarget);
-  };
+  const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElNav(event.currentTarget);
+  };
+  const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElUser(event.currentTarget);
+  };
 
-  const handleCloseNavMenu = () => {
-    setAnchorElNav(null);
-  };
+  const handleCloseNavMenu = () => {
+    setAnchorElNav(null);
+  };
 
-  const handleCloseUserMenu = () => {
-    setAnchorElUser(null);
-  };
+  const handleCloseUserMenu = () => {
+    setAnchorElUser(null);
+  };
 
-  return (
-    <AppBar position="static" style={{ borderRadius: '5px 5px 10px 10px' }}>
-      <Container maxWidth="xl">
-        <Toolbar disableGutters>
-          <Box
-            component="img"
-            src={AppLogo}
-            alt="Logo"
-            onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
-            sx={{
-              width: { xs: 40, md: 70 }, // širina 40px na malim, 70px na većim ekranima
-              height: 'auto',
-              borderRadius: 2,
-              display: { xs: 'none', md: 'flex' },
-              mr: 1
-            }}
-          />
-          <Typography
-            variant="h6"
-            noWrap
-            component="a"
-            href="/"
-            sx={{
-              mr: 2,
-              display: { xs: 'none', md: 'flex' },
-              fontFamily: 'monospace',
-              fontWeight: 700,
-              letterSpacing: '.3rem',
-              color: 'inherit',
-              textDecoration: 'none',
-            }}
-          >
-            BSEP
-          </Typography>
+  return (
+    <AppBar position="static" style={{ borderRadius: '5px 5px 10px 10px' }}>
+      <Container maxWidth="xl">
+        <Toolbar disableGutters>
+          <Box
+            component="img"
+            src={AppLogo}
+            alt="Logo"
+            onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
+            sx={{
+              width: { xs: 40, md: 70 },
+              height: 'auto',
+              borderRadius: 2,
+              display: { xs: 'none', md: 'flex' },
+              mr: 1
+            }}
+          />
+          <Typography
+            variant="h6"
+            noWrap
+            component="a"
+            href="/"
+            sx={{
+              mr: 2,
+              display: { xs: 'none', md: 'flex' },
+              fontFamily: 'monospace',
+              fontWeight: 700,
+              letterSpacing: '.3rem',
+              color: 'inherit',
+              textDecoration: 'none',
+            }}
+          >
+            BSEP
+          </Typography>
 
-          <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
-            <IconButton
-              size="large"
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleOpenNavMenu}
-              color="inherit"
-            >
-              <MenuIcon />
-            </IconButton>
-            <Menu
-              id="menu-appbar"
-              anchorEl={anchorElNav}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'left',
-              }}
-              keepMounted
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'left',
-              }}
-              open={Boolean(anchorElNav)}
-              onClose={handleCloseNavMenu}
-              sx={{ display: { xs: 'block', md: 'none' } }}
-            >
-              {pages.map((page) => {
-                // Sakrij "Password manager" ako korisnik nije REGULAR_USER
-                if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) {
-                  return null;
-                }
-                return (
-                  <MenuItem
-                    key={page}
-                    onClick={() => {
-                      handleCloseNavMenu();
-                      // Navigacija na osnovu imena stranice
-                      if (page === 'Products') navigate('/products');
-                      else if (page === 'Pricing') navigate('/pricing');
-                      else if (page === 'Password manager') navigate('/password-manager');
-                    }}
-                  >
-                    <Typography sx={{ textAlign: 'center' }}>{page}</Typography>
-                  </MenuItem>
-                );
-              })}
-            </Menu>
-          </Box>
+          <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
+            <IconButton
+              size="large"
+              aria-label="account of current user"
+              aria-controls="menu-appbar"
+              aria-haspopup="true"
+              onClick={handleOpenNavMenu}
+              color="inherit"
+            >
+              <MenuIcon />
+            </IconButton>
+            <Menu
+              id="menu-appbar"
+              anchorEl={anchorElNav}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'left',
+              }}
+              keepMounted
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'left',
+              }}
+              open={Boolean(anchorElNav)}
+              onClose={handleCloseNavMenu}
+              sx={{ display: { xs: 'block', md: 'none' } }}
+            >
+              {pages.map((page) => {
+                // Sakrij "Password manager" ako korisnik nije REGULAR_USER
+                if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) {
+                  return null;
+                }
+                return (
+                  <MenuItem
+                    key={page}
+                    onClick={() => {
+                      handleCloseNavMenu();
+                      // Navigacija na osnovu imena stranice
+                      if (page === 'Products') navigate('/products');
+                      else if (page === 'Pricing') navigate('/pricing');
+                      else if (page === 'Password manager') navigate('/password-manager');
+                    }}
+                  >
+                    <Typography sx={{ textAlign: 'center' }}>{page}</Typography>
+                  </MenuItem>
+                );
+              })}
+                {user && (
+                    <MenuItem onClick={() => { handleCloseNavMenu(); navigate('/sessions'); }}>
+                        <Typography sx={{ textAlign: 'center' }}>Sessions</Typography>
+                    </MenuItem>
+                )}
+            </Menu>
+          </Box>
 
-          <Box
-            component="img"
-            src={AppLogo}
-            alt="Logo"
-            onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
-            sx={{
-              width: { xs: 40, md: 70 }, // širina 40px na malim, 70px na većim ekranima
-              height: 'auto',
-              borderRadius: 2,
-              display: { xs: 'flex', md: 'none' },
-              mr: 1
-            }}
-          />
-          <Typography
-            variant="h5"
-            noWrap
-            component="a"
-            href="#app-bar-with-responsive-menu"
-            sx={{
-              mr: 2,
-              display: { xs: 'flex', md: 'none' },
-              flexGrow: 1,
-              fontFamily: 'monospace',
-              fontWeight: 700,
-              letterSpacing: '.3rem',
-              color: 'inherit',
-              textDecoration: 'none',
-            }}
-          >
-            BSEP
-          </Typography>
-          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
-            {pages.map((page) => {
-              if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) {
-                return null;
-              }
-              return (<Button
-                key={page}
-                style={{ marginLeft: '10px' }}
-                onClick={() => {
-                  handleCloseNavMenu();
-                  if (page === 'Products') navigate('/products');
-                  else if (page === 'Pricing') navigate('/pricing');
-                  else if (page === 'Password manager') navigate('/password-manager');
-                }}
-                sx={{ my: 2, color: 'white', display: 'block' }}
-              >
-                {page}
-              </Button>)
-            })}
-          </Box>
-          {/* ...existing code... */}
-          {user?.role === UserRole.REGULAR_USER && (
-            <Button
-              color="primary"
-              startIcon={<Add />}
-              sx={{ ml: 2, fontWeight: 'bold' }}
-              onClick={() => navigate('/create-csr')}
-            >
-              Create CSR
-            </Button>
-          )}
-          {user?.role === UserRole.CA_USER && (
-            <Button
-              color="secondary"
-              startIcon={<Add />}
-              sx={{ ml: 2, fontWeight: 'bold' }}
-              onClick={() => navigate('/csr-requests')}
-            >
-              CSR Requests
-            </Button>
-          )}
-          {!user?.twoFactorEnabled && (
-            <Button
-              color="warning"
-              sx={{ ml: 2, fontWeight: 'bold' }}
-              onClick={() => navigate('/enable-2fa')}
-            >
-              Enable 2FA
-            </Button>
-          )}
-          <Box sx={{ flexGrow: 0 }}>
-            <Tooltip title="Open settings">
-              <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <Avatar sx={{
-                  backgroundColor: mode === 'dark' ? 'white' : 'inherit',
-                  border: mode === 'light' ? '1px solid white' : 'none'
-                }} alt={user?.firstName} src="/static/images/avatar/3.jpg" />
-              </IconButton>
-            </Tooltip>
+          <Box
+            component="img"
+            src={AppLogo}
+            alt="Logo"
+            onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
+            sx={{
+              width: { xs: 40, md: 70 }, 
+              height: 'auto',
+              borderRadius: 2,
+              display: { xs: 'flex', md: 'none' },
+              mr: 1
+            }}
+          />
+          <Typography
+            variant="h5"
+            noWrap
+            component="a"
+            href="#app-bar-with-responsive-menu"
+            sx={{
+              mr: 2,
+              display: { xs: 'flex', md: 'none' },
+              flexGrow: 1,
+              fontFamily: 'monospace',
+              fontWeight: 700,
+              letterSpacing: '.3rem',
+              color: 'inherit',
+              textDecoration: 'none',
+            }}
+          >
+            BSEP
+          </Typography>
+          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
+            {pages.map((page) => {
+              if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) {
+                return null;
+              }
+              return (<Button
+                key={page}
+                style={{ marginLeft: '10px' }}
+                onClick={() => {
+                  handleCloseNavMenu();
+                  if (page === 'Products') navigate('/products');
+                  else if (page === 'Pricing') navigate('/pricing');
+                  else if (page === 'Password manager') navigate('/password-manager');
+                }}
+                sx={{ my: 2, color: 'white', display: 'block' }}
+              >
+                {page}
+              </Button>)
+            })}
+          </Box>
+          
+            {/* NOVO DUGME ZA SVE SESIJE - Dodato pre postojećih akcionih dugmića */}
+            {user && (
+                <Button
+                    color="primary"
+                    startIcon={<VpnKeyIcon />}
+                    sx={{ ml: 2, fontWeight: 'bold' }}
+                    onClick={() => navigate('/sessions')}
+                >
+                    Sessions
+                </Button>
+            )}
+            
+          {user?.role === UserRole.REGULAR_USER && (
+            <Button
+              color="primary"
+              startIcon={<Add />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/create-csr')}
+            >
+              Create CSR
+            </Button>
+          )}
+          {user?.role === UserRole.CA_USER && (
+            <Button
+              color="secondary"
+              startIcon={<Add />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/csr-requests')}
+            >
+              CSR Requests
+            </Button>
+          )}
+          {!user?.twoFactorEnabled && (
+            <Button
+              color="warning"
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/enable-2fa')}
+            >
+              Enable 2FA
+            </Button>
+          )}
+          <Box sx={{ flexGrow: 0 }}>
+            <Tooltip title="Open settings">
+              <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
+                <Avatar sx={{
+                  backgroundColor: mode === 'dark' ? 'white' : 'inherit',
+                  border: mode === 'light' ? '1px solid white' : 'none'
+                }} alt={user?.firstName} src="/static/images/avatar/3.jpg" />
+              </IconButton>
+            </Tooltip>
 
-            <Menu
-              sx={{ mt: '45px' }}
-              id="menu-appbar"
-              anchorEl={anchorElUser}
-              anchorOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              keepMounted
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
-              open={Boolean(anchorElUser)}
-              onClose={handleCloseUserMenu}
-            >
-              <Button color="inherit" style={{ transform: 'scale(0.9)' }} onClick={toggleTheme}>
-                {mode === 'dark' ? <SunIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} /> : <MoonIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} />}
-                {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
-              </Button>
+            <Menu
+              sx={{ mt: '45px' }}
+              id="menu-appbar"
+              anchorEl={anchorElUser}
+              anchorOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              keepMounted
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              open={Boolean(anchorElUser)}
+              onClose={handleCloseUserMenu}
+            >
+              <Button color="inherit" style={{ transform: 'scale(0.9)' }} onClick={toggleTheme}>
+                {mode === 'dark' ? <SunIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} /> : <MoonIcon style={{ marginRight: '4px', width: '20px', height: '20px' }} />}
+                {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              </Button>
 
-              {settings.map((setting) => (
-                <MenuItem key={setting} onClick={() => {
-                  handleCloseUserMenu();
-                  if (setting === 'Logout') {
-                    logout();
-                  }
-                }}>
-                  <Typography sx={{ textAlign: 'center' }}>{setting}</Typography>
-                </MenuItem>
-              ))}
-            </Menu>
-          </Box>
-        </Toolbar>
-      </Container>
-    </AppBar>
-  );
+              {settings.map((setting) => (
+                <MenuItem key={setting} onClick={() => {
+                  handleCloseUserMenu();
+                  if (setting === 'Logout') {
+                    logout();
+                  }
+                }}>
+                  <Typography sx={{ textAlign: 'center' }}>{setting}</Typography>
+                </MenuItem>
+              ))}
+            </Menu>
+          </Box>
+        </Toolbar>
+      </Container>
+    </AppBar>
+  );
 }
 export default NavBar;
