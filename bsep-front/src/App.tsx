@@ -14,6 +14,9 @@ import { UserProvider } from './context/UserContext'
 import GenerateKeyPage from './pages/GenerateKeyPage'
 import CreateCSR from './pages/CreateCSR'
 import CSRRequests from './pages/CSRRequests'
+import AdminCertificates from './pages/AdminCertificates'
+import CACertificates from './pages/CACertificates'
+import UserCertificates from './pages/UserCertificates'
 import ProtectedRoute from './components/ProtectedRoute'
 import { UserRole } from './models/User'
 
@@ -91,6 +94,21 @@ function App() {
           <Route path='/csr-requests' element={
             <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
               <CSRRequests />
+            </ProtectedRoute>
+          } />
+          <Route path='/admin-certificates' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}>
+              <AdminCertificates />
+            </ProtectedRoute>
+          } />
+          <Route path='/ca-certificates' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
+              <CACertificates />
+            </ProtectedRoute>
+          } />
+          <Route path='/my-certificates' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER, UserRole.CA_USER, UserRole.ADMIN]}>
+              <UserCertificates />
             </ProtectedRoute>
           } />
           <Route path='*' element={<h1>404 Not Found</h1>} />

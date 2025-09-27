@@ -13,6 +13,7 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AppLogo from '../assets/logo.png'
 import Add from '@mui/icons-material/Add';
+import Assignment from '@mui/icons-material/Assignment';
 // import WarningIcon from '@mui/icons-material/WarningAmber';
 import { useNavigate } from 'react-router-dom';
 import { MoonIcon, SunIcon } from 'flowbite-react';
@@ -189,6 +190,36 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             })}
           </Box>
           {/* ...existing code... */}
+          {user?.role === UserRole.ADMIN && (
+            <Button
+              color="primary"
+              startIcon={<Assignment />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/admin-certificates')}
+            >
+              Certificates
+            </Button>
+          )}
+          {user?.role === UserRole.CA_USER && (
+            <Button
+              color="secondary"
+              startIcon={<Assignment />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/ca-certificates')}
+            >
+              Certificates
+            </Button>
+          )}
+          {user?.role === UserRole.REGULAR_USER && (
+            <Button
+              color="primary"
+              startIcon={<Assignment />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/my-certificates')}
+            >
+              Certificates
+            </Button>
+          )}
           {user?.role === UserRole.REGULAR_USER && (
             <Button
               color="primary"
