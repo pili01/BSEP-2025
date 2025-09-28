@@ -22,6 +22,7 @@ import UserCertificates from './pages/UserCertificates'
 import ProtectedRoute from './components/ProtectedRoute'
 import CreateTemplatePage from './pages/CreateTemplatePage'
 import { UserRole } from './models/User'
+import CaUserIssueCertificatePage from './pages/CaUserIssueCertificatePage'
 
 function AppContent() {
   const [mode, setMode] = useState<'dark' | 'light'>('dark');
@@ -143,6 +144,11 @@ function AppContent() {
           <Route path='/adminIssue' element={
               <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}> 
                   <AdminIssueCertificatePage showSnackbar={showSnackbar} />
+              </ProtectedRoute>
+          } />
+          <Route path='/caIssue' element={
+              <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER]}> 
+                  <CaUserIssueCertificatePage showSnackbar={showSnackbar} />
               </ProtectedRoute>
           } />
         <Route path='*' element={<h1>404 Not Found</h1>} />

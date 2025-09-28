@@ -36,6 +36,21 @@ class CertificateService {
         return await this.handleResponse(response, 'Failed to get all certificates');
     }
 
+		static async getIntermidiateCertificatesForUser(): Promise<Certificate[]> {
+				const jwt = localStorage.getItem('jwt');
+				if (!jwt) throw new Error('No JWT token found');
+
+				const response = await fetch(`${API_URL}/certificates/intermediate/organization`, {
+						method: 'GET',
+						headers: {
+								'Authorization': `Bearer ${jwt}`,
+								'Content-Type': 'application/json',
+						},
+				});
+
+				return await this.handleResponse(response, 'Failed to get intermediate certificates for user');
+		}
+
     static async getCertificateChain(): Promise<Certificate[]> {
         const jwt = localStorage.getItem('jwt');
         if (!jwt) throw new Error('No JWT token found');

@@ -221,6 +221,16 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               Issue Certificate
             </Button>
           )}
+          {user && user?.role === UserRole.CA_USER && (
+            <Button
+              color="primary"
+              startIcon={<PostAdd />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/caIssue')}
+            >
+              Issue Certificate
+            </Button>
+          )}
           {user?.role === UserRole.ADMIN && (
             <Button
               color="primary"
