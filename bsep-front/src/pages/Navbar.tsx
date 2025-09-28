@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { MoonIcon, SunIcon } from 'flowbite-react';
 import { useUser } from '../context/UserContext';
 import { UserRole } from '../models/User';
+import { Description, PlusOne, PostAdd } from '@mui/icons-material';
 
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
@@ -198,6 +199,16 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               onClick={() => navigate('/sessions')}
             >
               Sessions
+            </Button>
+          )}
+          {user && (user?.role === UserRole.ADMIN || user?.role === UserRole.CA_USER) && (
+            <Button
+              color="primary"
+              startIcon={<PostAdd />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/templates')}
+            >
+              Add Template
             </Button>
           )}
           {user?.role === UserRole.ADMIN && (

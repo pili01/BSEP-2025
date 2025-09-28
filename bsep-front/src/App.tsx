@@ -10,9 +10,7 @@ import VerifyEmail from './pages/VerifyEmail'
 import TwoFactorAuth from './pages/TwoFactorAuth'
 import Enable2FA from './pages/Enable2FA'
 import SavedPasswords from './pages/SavedPasswords'
-///novo///
 import { UserProvider, useUser } from './context/UserContext'
-///novo///
 import GenerateKeyPage from './pages/GenerateKeyPage'
 import CreateCSR from './pages/CreateCSR'
 import CSRRequests from './pages/CSRRequests'
@@ -21,6 +19,7 @@ import AdminCertificates from './pages/AdminCertificates'
 import CACertificates from './pages/CACertificates'
 import UserCertificates from './pages/UserCertificates'
 import ProtectedRoute from './components/ProtectedRoute'
+import CreateTemplatePage from './pages/CreateTemplatePage'
 import { UserRole } from './models/User'
 
 function AppContent() {
@@ -133,6 +132,11 @@ function AppContent() {
           <Route path='/my-certificates' element={
             <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER, UserRole.CA_USER, UserRole.ADMIN]}>
               <UserCertificates />
+            </ProtectedRoute>
+          } />
+          <Route path='/templates' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
+              <CreateTemplatePage showSnackbar={showSnackbar} />
             </ProtectedRoute>
           } />
         <Route path='*' element={<h1>404 Not Found</h1>} />
