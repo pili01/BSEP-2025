@@ -54,7 +54,7 @@ class TemplateService {
 				const jwt = localStorage.getItem('jwt');
 				if (!jwt) throw new Error('No JWT token found');
 
-				const response = await fetch(`${API_URL}/api/certificate-templates/my-templates`, {
+				const response = await fetch(`${API_URL}/certificate-templates/my-templates`, {
 						method: 'GET',
 						headers: {
 								'Authorization': `Bearer ${jwt}`,

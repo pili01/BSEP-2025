@@ -17,7 +17,7 @@ import {
     Alert,
     Chip
 } from '@mui/material';
-import { Certificate, CertificateType, CertificateDto } from '../models/Certificate';
+import { CertificateType, CertificateDto } from '../models/Certificate';
 import { CertificateTemplate } from '../models/CertificateTemplate';
 import CertificateService from '../services/CertificateService';
 import TemplateService from '../services/TemplateService';
@@ -29,6 +29,7 @@ interface Props {
 interface CertificateFormData {
     type: CertificateType;
     targetUserEmail: string;
+    organization: string;
     commonName: string;
     keyUsage: string;
     extendedKeyUsage: string;
@@ -45,19 +46,20 @@ interface CaOption {
 }
 
 export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
-		const { user } = useUser();
+    const { user } = useUser();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [templatesLoading, setTemplatesLoading] = useState(false);
     const [caLoading, setCaLoading] = useState(false);
     const [error, setError] = useState('');
-    
+
     const [availableTemplates, setAvailableTemplates] = useState<CertificateTemplate[]>([]);
     const [availableCAs, setAvailableCAs] = useState<CaOption[]>([]);
-    
+
     const [formData, setFormData] = useState<CertificateFormData>({
         type: CertificateType.END_ENTITY,
         targetUserEmail: '',
+        organization: user?.organization || '',
         commonName: '',
         keyUsage: 'DigitalSignature,KeyEncipherment',
         extendedKeyUsage: 'ServerAuth',
@@ -69,34 +71,33 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
 
     useEffect(() => {
         loadAvailableCAs();
-        loadAllTemplates();
+        loadMyTemplates();
     }, []);
 
     const loadAvailableCAs = async () => {
         try {
             setCaLoading(true);
             const interCerts = await CertificateService.getIntermidiateCertificatesForUser();
-            const mapped = interCerts.map(cert => ({
-                serialNumber: cert.serialNumber || '',
-                subjectName: cert.subjectName || '',
-                type: cert.type
-            }));
-            setAvailableCAs(mapped);
+            setAvailableCAs(
+                interCerts.map(cert => ({
+                    serialNumber: cert.serialNumber || '',
+                    subjectName: cert.subjectName || '',
+                    type: cert.type
+                }))
+            );
         } catch (err) {
-            console.error('Failed to load CAs:', err);
             showSnackbar('Failed to load available intermediate certificates', 'warning');
         } finally {
             setCaLoading(false);
         }
     };
 
-    const loadAllTemplates = async () => {
+    const loadMyTemplates = async () => {
         try {
             setTemplatesLoading(true);
-            const templates = await TemplateService.getAllTemplates();
+            const templates = await TemplateService.getMyTemplates();
             setAvailableTemplates(templates);
         } catch (err) {
-            console.error('Failed to load templates:', err);
             showSnackbar('Failed to load templates', 'warning');
         } finally {
             setTemplatesLoading(false);
@@ -108,21 +109,75 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
         setError('');
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        
+    const applyTemplate = (template: CertificateTemplate | null) => {
+        if (template) {
+            setFormData(prev => ({
+                ...prev,
+                keyUsage: template.keyUsage || prev.keyUsage,
+                extendedKeyUsage: template.extendedKeyUsage || prev.extendedKeyUsage,
+                validityInDays: template.maxValidityDays || prev.validityInDays,
+                issuerSerialNumber: template.caIssuerSerialNumber || prev.issuerSerialNumber,
+                selectedTemplateId: template.id?.toString() || ''
+            }));
+        } else {
+            setFormData(prev => ({ ...prev, selectedTemplateId: '' }));
+        }
+    };
+
+    const validateTemplate = (template: CertificateTemplate): string[] => {
+        const issues: string[] = [];
+        if (template.commonNameRegex && formData.commonName) {
+            const regex = new RegExp(template.commonNameRegex);
+            if (!regex.test(formData.commonName)) {
+                issues.push(`Common Name does not match template pattern: ${template.commonNameRegex}`);
+            }
+        }
+        if (template.sansRegex && formData.subjectAlternativeNames) {
+            const regex = new RegExp(template.sansRegex);
+            const sanEntries = formData.subjectAlternativeNames.split(',').map(s => s.trim());
+            const invalidSans = sanEntries.filter(san => !regex.test(san));
+            if (invalidSans.length > 0) {
+                issues.push(`Subject Alternative Names do not match template pattern: ${template.sansRegex}`);
+            }
+        }
+        if (formData.validityInDays > template.maxValidityDays) {
+            issues.push(`Validity period exceeds template maximum: ${template.maxValidityDays} days`);
+        }
+        if (template.caIssuerSerialNumber && formData.issuerSerialNumber !== template.caIssuerSerialNumber) {
+            issues.push(`Certificate must be issued by CA: ${template.caIssuerSerialNumber}`);
+        }
+        return issues;
+    };
+
+    const validateForm = (): boolean => {
         if (!formData.commonName.trim()) {
             setError('Common Name is required.');
-            return;
+            return false;
         }
         if (formData.type !== CertificateType.ROOT && !formData.issuerSerialNumber.trim()) {
             setError('Issuer Serial Number is required.');
-            return;
+            return false;
         }
         if (formData.type !== CertificateType.ROOT && !formData.targetUserEmail.trim()) {
             setError('Target User Email is required.');
-            return;
+            return false;
         }
+        if (formData.selectedTemplateId) {
+            const template = availableTemplates.find(t => t.id?.toString() === formData.selectedTemplateId);
+            if (template) {
+                const templateIssues = validateTemplate(template);
+                if (templateIssues.length > 0) {
+                    setError(`Template validation failed: ${templateIssues.join('; ')}`);
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!validateForm()) return;
 
         const keyUsageArray = formData.keyUsage.split(',').map(s => s.trim()).filter(s => s.length > 0);
         const extendedKeyUsageArray = formData.extendedKeyUsage.split(',').map(s => s.trim()).filter(s => s.length > 0);
@@ -130,11 +185,11 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
         const certificateRequest: CertificateDto = {
             type: formData.type,
             targetUserEmail: formData.targetUserEmail,
-						organization: user?.organization || '',
+            organization: formData.organization,
             commonName: formData.commonName,
             keyUsage: keyUsageArray,
             extendedKeyUsage: extendedKeyUsageArray,
-            issuerSerialNumber: formData.issuerSerialNumber,
+            issuerSerialNumber: formData.type === CertificateType.ROOT ? undefined : formData.issuerSerialNumber,
             validityInDays: formData.validityInDays
         };
 
@@ -151,6 +206,9 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
         }
     };
 
+    const selectedTemplate = availableTemplates.find(t => t.id?.toString() === formData.selectedTemplateId);
+    const templateValidationIssues = selectedTemplate ? validateTemplate(selectedTemplate) : [];
+
     return (
         <Box component="main" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
             <Paper elevation={3} sx={{ width: 800, p: 4, borderRadius: 2 }}>
@@ -160,10 +218,7 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
                 <Typography variant="subtitle1" align="center" color="text.secondary" gutterBottom>
                     CA User Certificate Issuance
                 </Typography>
-
                 <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    
-                    {/* Certificate Type (bez ROOT-a) */}
                     <FormControl fullWidth>
                         <InputLabel>Certificate Type</InputLabel>
                         <Select
@@ -176,7 +231,38 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
                         </Select>
                     </FormControl>
 
-                    {/* Common Name */}
+                    <Autocomplete
+                        options={availableTemplates}
+                        getOptionLabel={(option) => option.templateName}
+                        value={selectedTemplate || null}
+                        onChange={(_, newValue) => applyTemplate(newValue)}
+                        loading={templatesLoading}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Select Template (Optional)"
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {templatesLoading && <CircularProgress size={20} />}
+                                            {params.InputProps.endAdornment}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
+                    />
+
+                    {selectedTemplate && templateValidationIssues.length > 0 && (
+                        <Alert severity="warning">
+                            <Typography variant="subtitle2">Template Issues:</Typography>
+                            {templateValidationIssues.map((issue, i) => (
+                                <Typography key={i} variant="body2">• {issue}</Typography>
+                            ))}
+                        </Alert>
+                    )}
+
                     <TextField
                         label="Common Name"
                         value={formData.commonName}
@@ -185,7 +271,6 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
                         fullWidth
                     />
 
-                    {/* Target User Email */}
                     {formData.type !== CertificateType.ROOT && (
                         <TextField
                             label="Target User Email"
@@ -197,7 +282,6 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
                         />
                     )}
 
-                    {/* Subject Alternative Names */}
                     <TextField
                         label="Subject Alternative Names"
                         value={formData.subjectAlternativeNames}
@@ -210,7 +294,6 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
 
                     <Divider />
 
-                    {/* Validity + Issuer */}
                     <Box sx={{ display: 'flex', gap: 2 }}>
                         <TextField
                             label="Validity (Days)"
@@ -242,7 +325,6 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
                         </FormControl>
                     </Box>
 
-                    {/* Key Usage & Extended */}
                     <Box sx={{ display: 'flex', gap: 2 }}>
                         <TextField
                             label="Key Usage"
@@ -262,7 +344,7 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
 
                     {error && <Alert severity="error">{error}</Alert>}
 
-                    <Button type="submit" variant="contained" fullWidth disabled={loading}>
+                    <Button type="submit" variant="contained" fullWidth disabled={loading || (selectedTemplate && templateValidationIssues.length > 0)}>
                         {loading ? <CircularProgress size={24} /> : 'Issue Certificate'}
                     </Button>
                 </Box>
