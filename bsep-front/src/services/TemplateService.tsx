@@ -50,6 +50,21 @@ class TemplateService {
         return await this.handleResponse(response, `Failed to get template with id ${id}.`);
     }
 
+		static async getMyTemplates(): Promise<CertificateTemplateDto[]> {
+				const jwt = localStorage.getItem('jwt');
+				if (!jwt) throw new Error('No JWT token found');
+
+				const response = await fetch(`${API_URL}/api/certificate-templates/my-templates`, {
+						method: 'GET',
+						headers: {
+								'Authorization': `Bearer ${jwt}`,
+								'Content-Type': 'application/json',
+						},
+				});
+
+				return await this.handleResponse(response, 'Failed to get user templates');
+		}
+
     private static async handleResponse(response: Response, defaultErrorMessage: string) {
         if (response.status < 200 || response.status >= 300) {
             const errorText = await response.text();

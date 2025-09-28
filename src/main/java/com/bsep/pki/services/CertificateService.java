@@ -109,7 +109,7 @@ public class CertificateService {
 
             Certificate issuerCertificate = issuerInfo.get();
 
-            if (!issuerCertificate.getUser().equals(issuingUser)) {
+            if (!issuerCertificate.getUser().equals(issuingUser) && issuingUser.getRole() != UserRole.ADMIN) {
                 throw new SecurityException("You are not authorized to use this certificate as an issuer.");
             }
 
@@ -716,7 +716,7 @@ public class CertificateService {
 
     private void validateCaCompatibility(Certificate caCertificate, CsrRequestDto csrDto, User issuingUser) throws Exception {
 
-        if (!caCertificate.getUser().equals(issuingUser)) {
+        if (!caCertificate.getUser().equals(issuingUser) && issuingUser.getRole() != UserRole.ADMIN) {
             throw new SecurityException("You are not authorized to use this certificate as an issuer");
         }
 
@@ -1256,10 +1256,6 @@ public class CertificateService {
         }
         return String.join(",", usages);
     }
-
-
-
-
 
     private PKCS10CertificationRequest parseCsrFromDB(String pemContentFromDb) throws Exception {
         if (pemContentFromDb == null) {

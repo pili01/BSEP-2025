@@ -58,4 +58,18 @@ public class CertificateTemplateController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @GetMapping("/my-templates")
+    public ResponseEntity<List<CertificateTemplate>> getMyTemplates() {
+        try {
+            User currentUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            List<CertificateTemplate> userTemplates = certificateTemplateService.findByUserId(currentUser.getId());
+            return ResponseEntity.ok(userTemplates);
+        } catch (ClassCastException | IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        } catch (Exception e) {
+            System.err.println("Error retrieving user templates: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

@@ -211,6 +211,16 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               Add Template
             </Button>
           )}
+          {user && user?.role === UserRole.ADMIN && (
+            <Button
+              color="primary"
+              startIcon={<PostAdd />}
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/adminIssue')}
+            >
+              Issue Certificate
+            </Button>
+          )}
           {user?.role === UserRole.ADMIN && (
             <Button
               color="primary"

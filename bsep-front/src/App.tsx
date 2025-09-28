@@ -16,6 +16,7 @@ import CreateCSR from './pages/CreateCSR'
 import CSRRequests from './pages/CSRRequests'
 import SessionsPage from './pages/SessionsPage';
 import AdminCertificates from './pages/AdminCertificates'
+import AdminIssueCertificatePage from './pages/AdminIssueCertificatePage'
 import CACertificates from './pages/CACertificates'
 import UserCertificates from './pages/UserCertificates'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -138,6 +139,11 @@ function AppContent() {
             <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
               <CreateTemplatePage showSnackbar={showSnackbar} />
             </ProtectedRoute>
+          } />
+          <Route path='/adminIssue' element={
+              <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}> 
+                  <AdminIssueCertificatePage showSnackbar={showSnackbar} />
+              </ProtectedRoute>
           } />
         <Route path='*' element={<h1>404 Not Found</h1>} />
       </Routes>   

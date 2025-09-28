@@ -9,23 +9,12 @@ import com.bsep.pki.services.UserService;
 import com.bsep.pki.utils.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.KeyPurposeId;
-import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +36,7 @@ public class CertificateController {
     }
 
     @PostMapping("/issue")
-    public ResponseEntity<String> issueCertificate(@Valid @RequestBody CertificateRequestDto requestDto, HttpServletRequest request) {
+    public ResponseEntity<String> issueCertificate(@RequestBody CertificateRequestDto requestDto, HttpServletRequest request) {
         try {
             String token = getJwtFromRequest(request);
             if (!StringUtils.hasText(token)) {

@@ -33,4 +33,8 @@ public class CertificateTemplateService {
     public List<CertificateTemplate> findAll() {
         return certificateTemplateRepository.findAll();
     }
+
+    public List<CertificateTemplate> findByUserId(Long userId) {
+        return certificateTemplateRepository.findByUserId(userId);
+    }
 }
