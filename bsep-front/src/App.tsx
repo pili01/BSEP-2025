@@ -10,18 +10,19 @@ import VerifyEmail from './pages/VerifyEmail'
 import TwoFactorAuth from './pages/TwoFactorAuth'
 import Enable2FA from './pages/Enable2FA'
 import SavedPasswords from './pages/SavedPasswords'
-///novo///
 import { UserProvider, useUser } from './context/UserContext'
-///novo///
 import GenerateKeyPage from './pages/GenerateKeyPage'
 import CreateCSR from './pages/CreateCSR'
 import CSRRequests from './pages/CSRRequests'
 import SessionsPage from './pages/SessionsPage';
 import AdminCertificates from './pages/AdminCertificates'
+import AdminIssueCertificatePage from './pages/AdminIssueCertificatePage'
 import CACertificates from './pages/CACertificates'
 import UserCertificates from './pages/UserCertificates'
 import ProtectedRoute from './components/ProtectedRoute'
+import CreateTemplatePage from './pages/CreateTemplatePage'
 import { UserRole } from './models/User'
+import CaUserIssueCertificatePage from './pages/CaUserIssueCertificatePage'
 
 function AppContent() {
   const [mode, setMode] = useState<'dark' | 'light'>('dark');
@@ -134,6 +135,21 @@ function AppContent() {
             <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER, UserRole.CA_USER, UserRole.ADMIN]}>
               <UserCertificates />
             </ProtectedRoute>
+          } />
+          <Route path='/templates' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
+              <CreateTemplatePage showSnackbar={showSnackbar} />
+            </ProtectedRoute>
+          } />
+          <Route path='/adminIssue' element={
+              <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}> 
+                  <AdminIssueCertificatePage showSnackbar={showSnackbar} />
+              </ProtectedRoute>
+          } />
+          <Route path='/caIssue' element={
+              <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER]}> 
+                  <CaUserIssueCertificatePage showSnackbar={showSnackbar} />
+              </ProtectedRoute>
           } />
         <Route path='*' element={<h1>404 Not Found</h1>} />
       </Routes>   
