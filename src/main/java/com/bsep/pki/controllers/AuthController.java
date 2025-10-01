@@ -21,7 +21,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 @RestController
@@ -46,16 +45,12 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<String> registerUser(@Valid @RequestBody RegistrationDto registrationDto) {
-        try {
-            var validationResult = registrationDto.isPasswordValid();
-            if (!validationResult.getFirst()) {
-                return new ResponseEntity<>(validationResult.getSecond(), HttpStatus.BAD_REQUEST);
-            }
-            userService.registerUser(registrationDto);
-            return new ResponseEntity<>("User successfully registered.", HttpStatus.CREATED);
-        } catch (RuntimeException | NoSuchAlgorithmException e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.CONFLICT);
+        var validationResult = registrationDto.isPasswordValid();
+        if (!validationResult.getFirst()) {
+            return new ResponseEntity<>(validationResult.getSecond(), HttpStatus.BAD_REQUEST);
         }
+        userService.registerUser(registrationDto);
+        return new ResponseEntity<>("User successfully registered.", HttpStatus.CREATED);
     }
 
     @PostMapping("/login")

@@ -43,7 +43,7 @@ public class UserService {
     }
 
     @Transactional
-    public User registerUser(RegistrationDto registrationDto) throws NoSuchAlgorithmException {
+    public User registerUser(RegistrationDto registrationDto) {
         if (userRepository.findByEmail(registrationDto.getEmail()).isPresent()) {
             throw new RuntimeException("Email is already in use.");
         }
@@ -57,7 +57,6 @@ public class UserService {
         user.setRole(UserRole.REGULAR_USER);
         user.setVerified(false);
         user.setPasswordChanged(false);
-        generateAndSetEncryptionKey(user);
 
         user = userRepository.save(user);
 
