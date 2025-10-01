@@ -45,8 +45,11 @@ public class CertificateService {
     private final UserService userService;
 
     @Autowired
-    public CertificateService(CertificateRepository certificateRepository, CertificateTemplateRepository certificateTemplateRepository,
-                              KeystoreEncryptionService encryptionService, CsrRequestRepository csrRequestRepository, UserService userService) {
+    public CertificateService(CertificateRepository certificateRepository,
+                              CertificateTemplateRepository certificateTemplateRepository,
+                              KeystoreEncryptionService encryptionService,
+                              CsrRequestRepository csrRequestRepository,
+                              UserService userService) {
         this.certificateRepository = certificateRepository;
         this.certificateTemplateRepository = certificateTemplateRepository;
         this.encryptionService = encryptionService;
@@ -72,13 +75,13 @@ public class CertificateService {
 
         if (optionalTemplate.isPresent()) {
             CertificateTemplate template = optionalTemplate.get();
-
-            if (template.getCommonNameRegex() != null && !template.getCommonNameRegex().isEmpty() && !Pattern.matches(template.getCommonNameRegex(), requestDto.getCommonName())) {
+            if (template.getCommonNameRegex() != null && !template.getCommonNameRegex().isEmpty()
+                    && !Pattern.matches(template.getCommonNameRegex(), requestDto.getCommonName())) {
                 throw new IllegalArgumentException("Common Name does not match template regex.");
             }
-
             if (requestDto.getValidityInDays() > template.getMaxValidityDays()) {
-                throw new IllegalArgumentException("Validity period exceeds template maximum of " + template.getMaxValidityDays() + " days.");
+                throw new IllegalArgumentException("Validity period exceeds template maximum of "
+                        + template.getMaxValidityDays() + " days.");
             }
         }
 
@@ -88,12 +91,11 @@ public class CertificateService {
             if (requestDto.getIssuerSerialNumber().isEmpty()) {
                 throw new IllegalArgumentException("Issuer serial number is required for non-root certificates.");
             }
-
-            Optional<Certificate> issuerInfo = certificateRepository.findBySerialNumber(requestDto.getIssuerSerialNumber().get());
+            Optional<Certificate> issuerInfo = certificateRepository.findBySerialNumber(
+                    requestDto.getIssuerSerialNumber().get());
             if (issuerInfo.isEmpty()) {
                 throw new IllegalArgumentException("Issuer certificate not found.");
             }
-
             if (issuerInfo.get().getKeystorePassword() == null) {
                 throw new IllegalArgumentException("Cannot issue a certificate from a non-CA certificate.");
             }
@@ -108,7 +110,6 @@ public class CertificateService {
             }
 
             Certificate issuerCertificate = issuerInfo.get();
-
             if (!issuerCertificate.getUser().equals(issuingUser) && issuingUser.getRole() != UserRole.ADMIN) {
                 throw new SecurityException("You are not authorized to use this certificate as an issuer.");
             }
@@ -117,44 +118,44 @@ public class CertificateService {
 
             if (requestDto.getType() == CertificateType.INTERMEDIATE) {
                 return generateIntermediateCertificate(requestDto, issuerInfo.get(), optionalTemplate, targetUser);
-            } else { // END_ENTITY
+            } else {
                 return generateEndEntityCertificate(requestDto, issuerInfo.get(), optionalTemplate, targetUser);
             }
         }
     }
 
-    private X509Certificate generateRootCertificate(CertificateRequestDto requestDto, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
+    private X509Certificate generateRootCertificate(CertificateRequestDto requestDto,
+                                                    Optional<CertificateTemplate> optionalTemplate,
+                                                    User targetUser) throws Exception {
         KeyPair keyPair = generateKeyPair();
-
-        X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
+        X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName()
+                + ", O=" + requestDto.getOrganization());
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
-
         LocalDateTime now = LocalDateTime.now();
         Date startDate = Date.from(now.atZone(ZoneId.systemDefault()).toInstant());
-        Date endDate = Date.from(now.plusDays(requestDto.getValidityInDays()).atZone(ZoneId.systemDefault()).toInstant());
+        Date endDate = Date.from(now.plusDays(requestDto.getValidityInDays())
+                .atZone(ZoneId.systemDefault()).toInstant());
 
         X509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
-                subjectName,
-                serialNumber,
-                startDate,
-                endDate,
-                subjectName,
-                keyPair.getPublic()
+                subjectName, serialNumber, startDate, endDate, subjectName, keyPair.getPublic()
         );
 
         addExtensionsToBuilder(certBuilder, requestDto, optionalTemplate, true);
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate());
-        X509Certificate certificate = new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
+        X509Certificate certificate = new JcaX509CertificateConverter()
+                .getCertificate(certBuilder.build(signer));
 
         String keystorePassword = generateRandomPassword();
         String encryptedPassword = encryptionService.encrypt(keystorePassword, targetUser.getEncryptionKey());
 
+        // Root sertifikat - samo on sa privatnim ključem
         java.security.cert.Certificate[] rootChain = new java.security.cert.Certificate[1];
         rootChain[0] = certificate;
-        String keystorePath = KEYSTORE_PATH + requestDto.getOrganization().replace(" ", "_") + ".jks";
 
-        saveToKeystore(certificate, keyPair.getPrivate(), requestDto.getCommonName(), rootChain, keystorePath, keystorePassword);
+        String keystorePath = KEYSTORE_PATH + serialNumber.toString() + ".jks";
+        saveToKeystore(certificate, keyPair.getPrivate(), requestDto.getCommonName(),
+                rootChain, keystorePath, keystorePassword);
 
         List<String> keyUsageListFromTemplate = optionalTemplate.map(CertificateTemplate::getKeyUsage)
                 .map(s -> Arrays.asList(s.split(","))).orElse(new ArrayList<>());
@@ -163,7 +164,9 @@ public class CertificateService {
         finalKeyUsageList.addAll(keyUsageListFromDto);
         finalKeyUsageList.add("keyCertSign");
         finalKeyUsageList.add("cRLSign");
-        String keyUsageString = finalKeyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
+
+        String keyUsageString = finalKeyUsageList.stream()
+                .map(String::trim).distinct().collect(Collectors.joining(", "));
         String extendedKeyUsageString = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage)
                 .orElse(requestDto.getExtendedKeyUsage().stream().collect(Collectors.joining(", ")));
         String sansRegexString = optionalTemplate.map(CertificateTemplate::getSansRegex).orElse(null);
@@ -190,36 +193,40 @@ public class CertificateService {
         return certificate;
     }
 
-    private X509Certificate generateIntermediateCertificate(CertificateRequestDto requestDto, Certificate issuerInfo, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
+    private X509Certificate generateIntermediateCertificate(CertificateRequestDto requestDto,
+                                                            Certificate issuerInfo,
+                                                            Optional<CertificateTemplate> optionalTemplate,
+                                                            User targetUser) throws Exception {
         KeyPair keyPair = generateKeyPair();
 
-        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(), issuerInfo.getUser().getEncryptionKey());
+        // Učitaj issuer keystore da potpišeš novi sertifikat
+        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(),
+                issuerInfo.getUser().getEncryptionKey());
         KeyStore issuerKeystore = KeyStore.getInstance("JKS");
         try (FileInputStream fis = new FileInputStream(issuerInfo.getKeystorePath())) {
             issuerKeystore.load(fis, issuerKeystorePassword.toCharArray());
         }
 
-        PrivateKey issuerPrivateKey = (PrivateKey) issuerKeystore.getKey(issuerInfo.getAlias(), issuerKeystorePassword.toCharArray());
+        PrivateKey issuerPrivateKey = (PrivateKey) issuerKeystore.getKey(issuerInfo.getAlias(),
+                issuerKeystorePassword.toCharArray());
         java.security.cert.Certificate[] issuerChain = issuerKeystore.getCertificateChain(issuerInfo.getAlias());
 
-        X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
+        X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName()
+                + ", O=" + requestDto.getOrganization());
         X500Name issuerName = new X500Name(issuerInfo.getSubjectName());
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
-
         LocalDateTime now = LocalDateTime.now();
         Date startDate = Date.from(now.atZone(ZoneId.systemDefault()).toInstant());
-        Date endDate = Date.from(now.plusDays(requestDto.getValidityInDays()).atZone(ZoneId.systemDefault()).toInstant());
+        Date endDate = Date.from(now.plusDays(requestDto.getValidityInDays())
+                .atZone(ZoneId.systemDefault()).toInstant());
 
         X509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
-                issuerName,
-                serialNumber,
-                startDate,
-                endDate,
-                subjectName,
-                keyPair.getPublic()
+                issuerName, serialNumber, startDate, endDate, subjectName, keyPair.getPublic()
         );
 
-        List<String> finalKeyUsageList = new ArrayList<>(optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(new ArrayList<>()));
+        List<String> finalKeyUsageList = new ArrayList<>(optionalTemplate
+                .map(CertificateTemplate::getKeyUsage)
+                .map(s -> Arrays.asList(s.split(","))).orElse(new ArrayList<>()));
         finalKeyUsageList.addAll(requestDto.getKeyUsage());
         finalKeyUsageList.add("keyCertSign");
         finalKeyUsageList.add("cRLSign");
@@ -229,9 +236,12 @@ public class CertificateService {
         finalKeyUsageList.add("dataEncipherment");
         finalKeyUsageList.add("keyAgreement");
 
-        String keyUsageString = finalKeyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
+        String keyUsageString = finalKeyUsageList.stream()
+                .map(String::trim).distinct().collect(Collectors.joining(", "));
 
-        List<String> finalExtendedKeyUsageList = new ArrayList<>(optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getExtendedKeyUsage()));
+        List<String> finalExtendedKeyUsageList = new ArrayList<>(optionalTemplate
+                .map(CertificateTemplate::getExtendedKeyUsage)
+                .map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getExtendedKeyUsage()));
         finalExtendedKeyUsageList.add("serverAuth");
         finalExtendedKeyUsageList.add("clientAuth");
         finalExtendedKeyUsageList.add("codeSigning");
@@ -239,22 +249,26 @@ public class CertificateService {
         finalExtendedKeyUsageList.add("timeStamping");
         finalExtendedKeyUsageList.add("ocspSigning");
 
-        String extendedKeyUsageString = finalExtendedKeyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
-
+        String extendedKeyUsageString = finalExtendedKeyUsageList.stream()
+                .map(String::trim).distinct().collect(Collectors.joining(", "));
         String sansRegexString = optionalTemplate.map(CertificateTemplate::getSansRegex).orElse(null);
 
         addExtensionsToBuilder(certBuilder, requestDto, optionalTemplate, true);
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(issuerPrivateKey);
-        X509Certificate certificate = new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
+        X509Certificate certificate = new JcaX509CertificateConverter()
+                .getCertificate(certBuilder.build(signer));
 
+        // Kreiraj lanac: novi intermediate + ceo issuer lanac (bez privatnih ključeva za issuer deo)
         java.security.cert.Certificate[] newChain = new java.security.cert.Certificate[issuerChain.length + 1];
         newChain[0] = certificate;
         System.arraycopy(issuerChain, 0, newChain, 1, issuerChain.length);
 
-        String keystorePassword = issuerKeystorePassword;
-        String keystorePath = KEYSTORE_PATH + requestDto.getOrganization().replace(" ", "_") + ".jks";
-        saveToKeystore(certificate, keyPair.getPrivate(), requestDto.getCommonName(), newChain, keystorePath, keystorePassword);
+        // Novi keystore samo za ovaj intermediate - sa privatnim ključem samo za njega
+        String keystorePassword = generateRandomPassword();
+        String keystorePath = KEYSTORE_PATH + serialNumber.toString() + ".jks";
+        saveToKeystore(certificate, keyPair.getPrivate(), requestDto.getCommonName(),
+                newChain, keystorePath, keystorePassword);
 
         Certificate certInfo = new Certificate();
         certInfo.setSerialNumber(certificate.getSerialNumber().toString());
@@ -278,43 +292,57 @@ public class CertificateService {
         return certificate;
     }
 
-    private X509Certificate generateEndEntityCertificate(CertificateRequestDto requestDto, Certificate issuerInfo, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
+    private X509Certificate generateEndEntityCertificate(CertificateRequestDto requestDto,
+                                                         Certificate issuerInfo,
+                                                         Optional<CertificateTemplate> optionalTemplate,
+                                                         User targetUser) throws Exception {
         KeyPair keyPair = generateKeyPair();
 
-        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(), issuerInfo.getUser().getEncryptionKey());
+        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(),
+                issuerInfo.getUser().getEncryptionKey());
         KeyStore issuerKeystore = KeyStore.getInstance("JKS");
         try (FileInputStream fis = new FileInputStream(issuerInfo.getKeystorePath())) {
             issuerKeystore.load(fis, issuerKeystorePassword.toCharArray());
         }
 
-        PrivateKey issuerPrivateKey = (PrivateKey) issuerKeystore.getKey(issuerInfo.getAlias(), issuerKeystorePassword.toCharArray());
+        PrivateKey issuerPrivateKey = (PrivateKey) issuerKeystore.getKey(issuerInfo.getAlias(),
+                issuerKeystorePassword.toCharArray());
+        java.security.cert.Certificate[] issuerChain = issuerKeystore.getCertificateChain(issuerInfo.getAlias());
 
-        X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
+        X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName()
+                + ", O=" + requestDto.getOrganization());
         X500Name issuerName = new X500Name(issuerInfo.getSubjectName());
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
-
         LocalDateTime now = LocalDateTime.now();
         Date startDate = Date.from(now.atZone(ZoneId.systemDefault()).toInstant());
-        Date endDate = Date.from(now.plusDays(requestDto.getValidityInDays()).atZone(ZoneId.systemDefault()).toInstant());
+        Date endDate = Date.from(now.plusDays(requestDto.getValidityInDays())
+                .atZone(ZoneId.systemDefault()).toInstant());
 
         X509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
-                issuerName,
-                serialNumber,
-                startDate,
-                endDate,
-                subjectName,
-                keyPair.getPublic()
+                issuerName, serialNumber, startDate, endDate, subjectName, keyPair.getPublic()
         );
 
         addExtensionsToBuilder(certBuilder, requestDto, optionalTemplate, false);
+
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(issuerPrivateKey);
-        X509Certificate certificate = new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
+        X509Certificate certificate = new JcaX509CertificateConverter()
+                .getCertificate(certBuilder.build(signer));
 
-        String keystorePath = KEYSTORE_PATH + issuerInfo.getOrganization().replace(" ", "_") + ".jks";
-        saveAsTrustedCertificate(certificate, keystorePath, issuerKeystorePassword);
+        // End-entity: kreiraj lanac bez privatnog ključa - samo trusted certificates
+        java.security.cert.Certificate[] endEntityChain = new java.security.cert.Certificate[issuerChain.length + 1];
+        endEntityChain[0] = certificate;
+        System.arraycopy(issuerChain, 0, endEntityChain, 1, issuerChain.length);
 
-        List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getKeyUsage());
-        String keyUsageString = keyUsageList.stream().map(String::trim).distinct().collect(Collectors.joining(", "));
+        String keystorePassword = generateRandomPassword();
+        String keystorePath = KEYSTORE_PATH + serialNumber.toString() + ".jks";
+
+        // Čuvaj end-entity kao trusted certificate store (bez privatnog ključa)
+        saveTrustedCertificateChain(endEntityChain, keystorePath, keystorePassword);
+
+        List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage)
+                .map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getKeyUsage());
+        String keyUsageString = keyUsageList.stream()
+                .map(String::trim).distinct().collect(Collectors.joining(", "));
         String extendedKeyUsageString = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage)
                 .orElse(requestDto.getExtendedKeyUsage().stream().collect(Collectors.joining(", ")));
         String sansRegexString = optionalTemplate.map(CertificateTemplate::getSansRegex).orElse(null);
@@ -335,15 +363,20 @@ public class CertificateService {
         certInfo.setSansRegex(sansRegexString);
         certInfo.setIssuerSerialNumber(issuerInfo.getSerialNumber());
         certInfo.setUser(targetUser);
-        certInfo.setKeystorePassword(null);
+        certInfo.setKeystorePassword(encryptionService.encrypt(keystorePassword, targetUser.getEncryptionKey()));
 
         certificateRepository.save(certInfo);
         return certificate;
     }
 
-    private void addExtensionsToBuilder(X509v3CertificateBuilder certBuilder, CertificateRequestDto requestDto, Optional<CertificateTemplate> optionalTemplate, boolean isCA) throws Exception {
-        List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getKeyUsage());
-        List<String> extendedKeyUsageList = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getExtendedKeyUsage());
+    private void addExtensionsToBuilder(X509v3CertificateBuilder certBuilder,
+                                        CertificateRequestDto requestDto,
+                                        Optional<CertificateTemplate> optionalTemplate,
+                                        boolean isCA) throws Exception {
+        List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage)
+                .map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getKeyUsage());
+        List<String> extendedKeyUsageList = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage)
+                .map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getExtendedKeyUsage());
         Optional<String> sansRegex = optionalTemplate.map(CertificateTemplate::getSansRegex);
 
         certBuilder.addExtension(Extension.basicConstraints, true, new BasicConstraints(isCA));
@@ -352,33 +385,15 @@ public class CertificateService {
             int keyUsageValue = 0;
             for (String usage : keyUsageList) {
                 switch (usage.trim()) {
-                    case "digitalSignature":
-                        keyUsageValue |= KeyUsage.digitalSignature;
-                        break;
-                    case "nonRepudiation":
-                        keyUsageValue |= KeyUsage.nonRepudiation;
-                        break;
-                    case "keyEncipherment":
-                        keyUsageValue |= KeyUsage.keyEncipherment;
-                        break;
-                    case "dataEncipherment":
-                        keyUsageValue |= KeyUsage.dataEncipherment;
-                        break;
-                    case "keyAgreement":
-                        keyUsageValue |= KeyUsage.keyAgreement;
-                        break;
-                    case "keyCertSign":
-                        keyUsageValue |= KeyUsage.keyCertSign;
-                        break;
-                    case "cRLSign":
-                        keyUsageValue |= KeyUsage.cRLSign;
-                        break;
-                    case "encipherOnly":
-                        keyUsageValue |= KeyUsage.encipherOnly;
-                        break;
-                    case "decipherOnly":
-                        keyUsageValue |= KeyUsage.decipherOnly;
-                        break;
+                    case "digitalSignature": keyUsageValue |= KeyUsage.digitalSignature; break;
+                    case "nonRepudiation": keyUsageValue |= KeyUsage.nonRepudiation; break;
+                    case "keyEncipherment": keyUsageValue |= KeyUsage.keyEncipherment; break;
+                    case "dataEncipherment": keyUsageValue |= KeyUsage.dataEncipherment; break;
+                    case "keyAgreement": keyUsageValue |= KeyUsage.keyAgreement; break;
+                    case "keyCertSign": keyUsageValue |= KeyUsage.keyCertSign; break;
+                    case "cRLSign": keyUsageValue |= KeyUsage.cRLSign; break;
+                    case "encipherOnly": keyUsageValue |= KeyUsage.encipherOnly; break;
+                    case "decipherOnly": keyUsageValue |= KeyUsage.decipherOnly; break;
                 }
             }
             certBuilder.addExtension(Extension.keyUsage, true, new KeyUsage(keyUsageValue));
@@ -388,33 +403,23 @@ public class CertificateService {
             List<KeyPurposeId> purposes = new ArrayList<>();
             for (String usage : extendedKeyUsageList) {
                 switch (usage.trim()) {
-                    case "serverAuth":
-                        purposes.add(KeyPurposeId.id_kp_serverAuth);
-                        break;
-                    case "clientAuth":
-                        purposes.add(KeyPurposeId.id_kp_clientAuth);
-                        break;
-                    case "codeSigning":
-                        purposes.add(KeyPurposeId.id_kp_codeSigning);
-                        break;
-                    case "emailProtection":
-                        purposes.add(KeyPurposeId.id_kp_emailProtection);
-                        break;
-                    case "timeStamping":
-                        purposes.add(KeyPurposeId.id_kp_timeStamping);
-                        break;
-                    case "ocspSigning":
-                        purposes.add(KeyPurposeId.id_kp_OCSPSigning);
-                        break;
+                    case "serverAuth": purposes.add(KeyPurposeId.id_kp_serverAuth); break;
+                    case "clientAuth": purposes.add(KeyPurposeId.id_kp_clientAuth); break;
+                    case "codeSigning": purposes.add(KeyPurposeId.id_kp_codeSigning); break;
+                    case "emailProtection": purposes.add(KeyPurposeId.id_kp_emailProtection); break;
+                    case "timeStamping": purposes.add(KeyPurposeId.id_kp_timeStamping); break;
+                    case "ocspSigning": purposes.add(KeyPurposeId.id_kp_OCSPSigning); break;
                 }
             }
-            certBuilder.addExtension(Extension.extendedKeyUsage, false, new ExtendedKeyUsage(purposes.toArray(new KeyPurposeId[0])));
+            certBuilder.addExtension(Extension.extendedKeyUsage, false,
+                    new ExtendedKeyUsage(purposes.toArray(new KeyPurposeId[0])));
         }
 
         certBuilder.addExtension(Extension.cRLDistributionPoints, false, new CRLDistPoint(
                 new DistributionPoint[]{new DistributionPoint(
                         new DistributionPointName(
-                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier, "https://localhost:8443/api/crl"))
+                                new GeneralNames(new GeneralName(GeneralName.uniformResourceIdentifier,
+                                        "https://localhost:8443/api/crl"))
                         ), null, null
                 )}
         ));
@@ -423,12 +428,16 @@ public class CertificateService {
             List<GeneralName> sanNames = new ArrayList<>();
             sanNames.add(new GeneralName(GeneralName.dNSName, "www.example.com"));
             sanNames.add(new GeneralName(GeneralName.dNSName, "sub.example.com"));
-            certBuilder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(sanNames.toArray(new GeneralName[0])));
+            certBuilder.addExtension(Extension.subjectAlternativeName, false,
+                    new GeneralNames(sanNames.toArray(new GeneralName[0])));
         }
     }
 
-    private void checkIssuerPolicy(CertificateRequestDto requestDto, Optional<CertificateTemplate> optionalTemplate, Certificate issuerInfo) {
-        List<String> requestedKeyUsage = optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getKeyUsage());
+    private void checkIssuerPolicy(CertificateRequestDto requestDto,
+                                   Optional<CertificateTemplate> optionalTemplate,
+                                   Certificate issuerInfo) {
+        List<String> requestedKeyUsage = optionalTemplate.map(CertificateTemplate::getKeyUsage)
+                .map(s -> Arrays.asList(s.split(","))).orElse(requestDto.getKeyUsage());
 
         if (issuerInfo.getKeyUsage() != null) {
             String[] issuerUsages = issuerInfo.getKeyUsage().split(", ");
@@ -441,48 +450,45 @@ public class CertificateService {
                     }
                 }
                 if (!found) {
-                    throw new IllegalArgumentException("Requested key usage '" + usage + "' is not permitted by the issuer.");
+                    throw new IllegalArgumentException("Requested key usage '" + usage
+                            + "' is not permitted by the issuer.");
                 }
             }
         }
     }
 
-    private void saveToKeystore(X509Certificate certificate, PrivateKey privateKey, String alias, java.security.cert.Certificate[] issuerChain, String keystorePath, String keystorePassword) throws Exception {
+    private void saveToKeystore(X509Certificate certificate, PrivateKey privateKey, String alias,
+                                java.security.cert.Certificate[] chain, String keystorePath,
+                                String keystorePassword) throws Exception {
         KeyStore keyStore = KeyStore.getInstance("JKS");
         char[] passwordChars = keystorePassword.toCharArray();
 
-        File keystoreFile = new File(keystorePath);
-        if (keystoreFile.exists()) {
-            try (FileInputStream fis = new FileInputStream(keystoreFile)) {
-                keyStore.load(fis, passwordChars);
-            }
-        } else {
-            keyStore.load(null, passwordChars);
-        }
+        // Kreiraj novi keystore
+        keyStore.load(null, passwordChars);
 
-        keyStore.setKeyEntry(alias, privateKey, passwordChars, issuerChain);
+        // Dodaj privatni ključ sa lancem (samo prvi u lancu ima privatni ključ)
+        keyStore.setKeyEntry(alias, privateKey, passwordChars, chain);
 
         try (FileOutputStream fos = new FileOutputStream(keystorePath)) {
             keyStore.store(fos, passwordChars);
         }
     }
 
-    private void saveAsTrustedCertificate(X509Certificate certificate, String keystorePath, String keystorePassword) throws Exception {
+    private void saveTrustedCertificateChain(java.security.cert.Certificate[] chain,
+                                             String keystorePath,
+                                             String keystorePassword) throws Exception {
         KeyStore keyStore = KeyStore.getInstance("JKS");
         char[] passwordChars = keystorePassword.toCharArray();
 
-        File keystoreFile = new File(keystorePath);
-        if (!keystoreFile.exists()) {
-            throw new IllegalArgumentException("Keystore for organization does not exist.");
-        }
+        // Kreiraj novi keystore
+        keyStore.load(null, passwordChars);
 
-        try (FileInputStream fis = new FileInputStream(keystoreFile)) {
-            keyStore.load(fis, passwordChars);
-        } catch (IOException e) {
-            throw new IllegalArgumentException("Invalid keystore password.", e);
+        // Dodaj sve sertifikate kao trusted (bez privatnih ključeva)
+        for (int i = 0; i < chain.length; i++) {
+            X509Certificate cert = (X509Certificate) chain[i];
+            String alias = "cert-" + i + "-" + cert.getSerialNumber().toString();
+            keyStore.setCertificateEntry(alias, cert);
         }
-
-        keyStore.setCertificateEntry(certificate.getSerialNumber().toString(), certificate);
 
         try (FileOutputStream fos = new FileOutputStream(keystorePath)) {
             keyStore.store(fos, passwordChars);
@@ -498,7 +504,8 @@ public class CertificateService {
 
     private boolean isCertificateValid(Certificate certificateInfo) {
         LocalDateTime now = LocalDateTime.now();
-        return !now.isBefore(certificateInfo.getStartDate()) && !now.isAfter(certificateInfo.getEndDate());
+        return !now.isBefore(certificateInfo.getStartDate())
+                && !now.isAfter(certificateInfo.getEndDate());
     }
 
     private boolean isCertificateRevoked(Certificate certificateInfo) {
@@ -518,17 +525,64 @@ public class CertificateService {
             throw new IllegalArgumentException("Issuer certificate is revoked in chain validation");
         }
 
+        // NOVO: Kriptografska validacija potpisa
         if (issuerInfo.getType() != CertificateType.ROOT) {
             String parentSerialNumber = issuerInfo.getIssuerSerialNumber();
             if (parentSerialNumber != null && !parentSerialNumber.isEmpty()) {
-                Optional<Certificate> parentIssuer = certificateRepository.findBySerialNumber(parentSerialNumber);
+                Optional<Certificate> parentIssuer = certificateRepository
+                        .findBySerialNumber(parentSerialNumber);
                 if (parentIssuer.isPresent()) {
+                    // Validacija potpisa
+                    validateCertificateSignature(issuerInfo, parentIssuer.get());
+
+                    // Rekurzivna validacija gore
                     validateCertificateChain(parentIssuer.get(), currentDepth + 1);
+                } else {
+                    throw new IllegalArgumentException("Parent issuer certificate not found in database");
                 }
+            } else {
+                throw new IllegalArgumentException("Non-root certificate must have an issuer");
             }
         }
     }
 
+    private void validateCertificateSignature(Certificate childCert, Certificate issuerCert) throws Exception {
+        // Učitaj issuer keystore
+        String issuerPassword = encryptionService.decrypt(
+                issuerCert.getKeystorePassword(),
+                issuerCert.getUser().getEncryptionKey()
+        );
+
+        KeyStore issuerKeystore = KeyStore.getInstance("JKS");
+        try (FileInputStream fis = new FileInputStream(issuerCert.getKeystorePath())) {
+            issuerKeystore.load(fis, issuerPassword.toCharArray());
+        }
+
+        // Uzmi issuer public key
+        X509Certificate issuerX509 = (X509Certificate) issuerKeystore.getCertificate(issuerCert.getAlias());
+        PublicKey issuerPublicKey = issuerX509.getPublicKey();
+
+        // Učitaj child sertifikat
+        String childPassword = encryptionService.decrypt(
+                childCert.getKeystorePassword(),
+                childCert.getUser().getEncryptionKey()
+        );
+
+        KeyStore childKeystore = KeyStore.getInstance("JKS");
+        try (FileInputStream fis = new FileInputStream(childCert.getKeystorePath())) {
+            childKeystore.load(fis, childPassword.toCharArray());
+        }
+
+        X509Certificate childX509 = (X509Certificate) childKeystore.getCertificate(childCert.getAlias());
+
+        // Validacija potpisa
+        try {
+            childX509.verify(issuerPublicKey);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Certificate signature validation failed: "
+                    + childCert.getSerialNumber() + " was not signed by " + issuerCert.getSerialNumber(), e);
+        }
+    }
 
     public List<Certificate> getAllCertificates() {
         return certificateRepository.findAll();
@@ -548,6 +602,16 @@ public class CertificateService {
         return certificateRepository.findByOrganizationAndType(user.getOrganization(), CertificateType.END_ENTITY);
     }
 
+
+    public List<Certificate> getCertificatesByOrganizationAndUser(String userEmail) {
+        Optional<User> userOptional = userService.getUserByEmail(userEmail);
+        if (userOptional.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        User user = userOptional.get();
+        return certificateRepository.findByTypeAndOrganizationAndUser_Id(CertificateType.INTERMEDIATE, user.getOrganization(), user.getId());
+    }
 
     public List<Certificate> getCertificatesFromChain(String rootSerialNumber) {
         List<Certificate> chain = new ArrayList<>();
@@ -817,8 +881,7 @@ public class CertificateService {
 
 
         String keystorePath = caCertificate.getKeystorePath();
-        saveAsTrustedCertificate(certificate, keystorePath, caKeystorePassword);
-
+        //saveAsTrustedCertificate(certificate, keystorePath, caKeystorePassword);
 
         List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage)
                 .map(s -> Arrays.asList(s.split(",")))

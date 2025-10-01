@@ -77,7 +77,7 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
     const loadAvailableCAs = async () => {
         try {
             setCaLoading(true);
-            const interCerts = await CertificateService.getIntermidiateCertificatesForUser();
+            const interCerts = await CertificateService.getCaUserCertificates();
             setAvailableCAs(
                 interCerts.map(cert => ({
                     serialNumber: cert.serialNumber || '',

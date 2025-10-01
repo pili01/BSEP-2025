@@ -2,15 +2,14 @@ package com.bsep.pki.controllers;
 
 import com.bsep.pki.dtos.Code2FADto;
 import com.bsep.pki.dtos.LoginDto;
-import com.bsep.pki.dtos.RegistrationDto;
 import com.bsep.pki.dtos.PasswordResetDto;
+import com.bsep.pki.dtos.RegistrationDto;
 import com.bsep.pki.models.User;
 import com.bsep.pki.services.*;
 import com.bsep.pki.utils.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,14 +19,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import java.security.KeyPair;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 @RestController
@@ -59,7 +53,7 @@ public class AuthController {
             }
             userService.registerUser(registrationDto);
             return new ResponseEntity<>("User successfully registered.", HttpStatus.CREATED);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | NoSuchAlgorithmException e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.CONFLICT);
         }
     }

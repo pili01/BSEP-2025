@@ -80,7 +80,10 @@ public class CertificateController {
                 if (targetUser.getRole() != UserRole.CA_USER) {
                     return new ResponseEntity<>("Intermediate certificates can only be issued for CA users.", HttpStatus.FORBIDDEN);
                 }
-                if (!requestDto.getOrganization().equals(userOrganization)) {
+                if (targetUser.getEmail().equals(userEmail)) {
+                    return new ResponseEntity<>("You can't issue intermediate certificate for yourself!", HttpStatus.FORBIDDEN);
+                }
+                if (!requestDto.getOrganization().equals(userOrganization) && userRole != UserRole.ADMIN) {
                     return new ResponseEntity<>("You can only issue certificates for your own organization: " + userOrganization, HttpStatus.FORBIDDEN);
                 }
             } else if (requestDto.getType() == CertificateType.END_ENTITY) {
@@ -90,7 +93,7 @@ public class CertificateController {
                 if (targetUser.getRole() != UserRole.REGULAR_USER) {
                     return new ResponseEntity<>("End entity certificates can only be issued for REGULAR users.", HttpStatus.FORBIDDEN);
                 }
-                if (!requestDto.getOrganization().equals(userOrganization)) {
+                if (!requestDto.getOrganization().equals(userOrganization) && userRole != UserRole.ADMIN) {
                     return new ResponseEntity<>("You can only issue certificates for your own organization: " + userOrganization, HttpStatus.FORBIDDEN);
                 }
             } else {
@@ -173,6 +176,21 @@ public class CertificateController {
 
             String userEmail = jwtProvider.getEmailFromToken(token);
             return ResponseEntity.ok(certificateService.getEndEntityCertificatesByUserEmail(userEmail));
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error retrieving user certificates: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @GetMapping("/ca-user/my")
+    public ResponseEntity<?> getMyIntermidiateCertificates(HttpServletRequest request) {
+        try {
+            String token = getJwtFromRequest(request);
+            if (!StringUtils.hasText(token)) {
+                return new ResponseEntity<>("Authorization token is missing.", HttpStatus.UNAUTHORIZED);
+            }
+
+            String userEmail = jwtProvider.getEmailFromToken(token);
+            return ResponseEntity.ok(certificateService.getCertificatesByOrganizationAndUser(userEmail));
         } catch (Exception e) {
             return new ResponseEntity<>("Error retrieving user certificates: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }

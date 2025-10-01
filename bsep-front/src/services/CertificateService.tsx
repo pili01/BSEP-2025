@@ -66,11 +66,11 @@ class CertificateService {
         return await this.handleResponse(response, 'Failed to get certificate chain');
     }
 
-    static async getUserCertificates(): Promise<Certificate[]> {
+    static async getCaUserCertificates(): Promise<Certificate[]> {
         const jwt = localStorage.getItem('jwt');
         if (!jwt) throw new Error('No JWT token found');
 
-        const response = await fetch(`${API_URL}/certificates/user/my`, {
+        const response = await fetch(`${API_URL}/certificates/ca-user/my`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${jwt}`,
