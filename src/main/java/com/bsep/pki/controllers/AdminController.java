@@ -50,7 +50,7 @@ public class AdminController {
     }
 
     @PostMapping("/register-admin")
-    public ResponseEntity<String> registerAdmin(@Valid @RequestBody RegistrationDto registrationDto, HttpServletRequest request) {
+    public ResponseEntity<String> registerAdmin( @RequestBody RegistrationDto registrationDto, HttpServletRequest request) {
         String ipAddress = request.getRemoteAddr();
         String currentAdminEmail = getAdminEmail(request);
 

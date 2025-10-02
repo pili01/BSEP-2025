@@ -65,6 +65,19 @@ public class CertificateService {
         return keyPairGenerator.generateKeyPair();
     }
 
+    /**
+     * Helper method to decrypt user encryption key from database.
+     * User encryption keys are stored encrypted with the master key for additional security.
+     *
+     * @param user The user whose encryption key needs to be decrypted
+     * @return The decrypted user encryption key
+     * @throws Exception if decryption fails
+     */
+    private String getUserEncryptionKey(User user) throws Exception {
+        String encryptedUserKey = user.getEncryptionKey();
+        return encryptionService.decryptUserKey(encryptedUserKey);
+    }
+
     @Transactional
     public X509Certificate issueCertificate(CertificateRequestDto requestDto, User issuingUser, User targetUser) throws Exception {
         Optional<CertificateTemplate> optionalTemplate = Optional.empty();
@@ -153,7 +166,8 @@ public class CertificateService {
         X509Certificate certificate = new JcaX509CertificateConverter().getCertificate(certBuilder.build(signer));
 
         String keystorePassword = generateRandomPassword();
-        String encryptedPassword = encryptionService.encrypt(keystorePassword, targetUser.getEncryptionKey());
+        String userKey = getUserEncryptionKey(targetUser);
+        String encryptedPassword = encryptionService.encrypt(keystorePassword, userKey);
 
         java.security.cert.Certificate[] rootChain = new java.security.cert.Certificate[1];
         rootChain[0] = certificate;
@@ -198,7 +212,8 @@ public class CertificateService {
     private X509Certificate generateIntermediateCertificate(CertificateRequestDto requestDto, Certificate issuerInfo, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
         KeyPair keyPair = generateKeyPair();
 
-        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(), issuerInfo.getUser().getEncryptionKey());
+        String issuerUserKey = getUserEncryptionKey(issuerInfo.getUser());
+        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(), issuerUserKey);
         KeyStore issuerKeystore = KeyStore.getInstance("JKS");
         try (FileInputStream fis = new FileInputStream(issuerInfo.getKeystorePath())) {
             issuerKeystore.load(fis, issuerKeystorePassword.toCharArray());
@@ -277,7 +292,8 @@ public class CertificateService {
         certInfo.setSansRegex(sansRegexString);
         certInfo.setIssuerSerialNumber(issuerInfo.getSerialNumber());
         certInfo.setUser(targetUser);
-        certInfo.setKeystorePassword(encryptionService.encrypt(keystorePassword, targetUser.getEncryptionKey()));
+        String targetUserKey = getUserEncryptionKey(targetUser);
+        certInfo.setKeystorePassword(encryptionService.encrypt(keystorePassword, targetUserKey));
 
         certificateRepository.save(certInfo);
         return certificate;
@@ -286,7 +302,8 @@ public class CertificateService {
     private X509Certificate generateEndEntityCertificate(CertificateRequestDto requestDto, Certificate issuerInfo, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
         KeyPair keyPair = generateKeyPair();
 
-        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(), issuerInfo.getUser().getEncryptionKey());
+        String issuerUserKey = getUserEncryptionKey(issuerInfo.getUser());
+        String issuerKeystorePassword = encryptionService.decrypt(issuerInfo.getKeystorePassword(), issuerUserKey);
         KeyStore issuerKeystore = KeyStore.getInstance("JKS");
         try (FileInputStream fis = new FileInputStream(issuerInfo.getKeystorePath())) {
             issuerKeystore.load(fis, issuerKeystorePassword.toCharArray());
@@ -786,8 +803,8 @@ public class CertificateService {
     private X509Certificate issueCertificateFromCsr(PKCS10CertificationRequest csr, CsrRequestDto csrDto,
                                                     Certificate caCertificate, User issuingUser, User targetUser) throws Exception {
 
-
-        String caKeystorePassword = encryptionService.decrypt(caCertificate.getKeystorePassword(), caCertificate.getUser().getEncryptionKey());
+        String caUserKey = getUserEncryptionKey(caCertificate.getUser());
+        String caKeystorePassword = encryptionService.decrypt(caCertificate.getKeystorePassword(), caUserKey);
         KeyStore caKeystore = KeyStore.getInstance("JKS");
 
         try (FileInputStream fis = new FileInputStream(caCertificate.getKeystorePath())) {
@@ -1115,7 +1132,8 @@ public class CertificateService {
         }
         Certificate rootCert = rootCertOpt.get();
         try {
-            String keystorePassword = encryptionService.decrypt(rootCert.getKeystorePassword(), rootCert.getUser().getEncryptionKey());
+            String rootUserKey = getUserEncryptionKey(rootCert.getUser());
+            String keystorePassword = encryptionService.decrypt(rootCert.getKeystorePassword(), rootUserKey);
             KeyStore keyStore = KeyStore.getInstance("JKS");
             try (FileInputStream fis = new FileInputStream(rootCert.getKeystorePath())) {
                 keyStore.load(fis, keystorePassword.toCharArray());
@@ -1385,7 +1403,8 @@ public class CertificateService {
             }
 
             Certificate caCert = caCertOpt.get();
-            String keystorePassword = encryptionService.decrypt(caCert.getKeystorePassword(), caCert.getUser().getEncryptionKey());
+            String caCertUserKey = getUserEncryptionKey(caCert.getUser());
+            String keystorePassword = encryptionService.decrypt(caCert.getKeystorePassword(), caCertUserKey);
 
             try (FileInputStream fis = new FileInputStream(keystoreFile)) {
                 keyStore.load(fis, keystorePassword.toCharArray());
@@ -1421,8 +1440,8 @@ public class CertificateService {
 
     private ResponseEntity<?> downloadCertificateWithPrivateKey(Certificate cert, User requestingUser) throws Exception {
         try {
-
-            String keystorePassword = encryptionService.decrypt(cert.getKeystorePassword(), cert.getUser().getEncryptionKey());
+            String certUserKey = getUserEncryptionKey(cert.getUser());
+            String keystorePassword = encryptionService.decrypt(cert.getKeystorePassword(), certUserKey);
 
             KeyStore keyStore = KeyStore.getInstance("JKS");
             try (FileInputStream fis = new FileInputStream(cert.getKeystorePath())) {
@@ -1498,7 +1517,8 @@ public class CertificateService {
             }
 
             Certificate caCert = caCertOpt.get();
-            String keystorePassword = encryptionService.decrypt(caCert.getKeystorePassword(), caCert.getUser().getEncryptionKey());
+            String caCertUserKey = getUserEncryptionKey(caCert.getUser());
+            String keystorePassword = encryptionService.decrypt(caCert.getKeystorePassword(), caCertUserKey);
 
 
             KeyStore keyStore = KeyStore.getInstance("JKS");

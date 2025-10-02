@@ -32,14 +32,16 @@ public class UserService {
     private final VerificationService verificationService;
     private final TwoFactorAuthService twoFactorAuthService;
     private final ModelMapper modelMapper;
+    private final KeystoreEncryptionService keystoreEncryptionService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService, VerificationService verificationService, TwoFactorAuthService twoFactorAuthService, ModelMapper modelMapper) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, EmailService emailService, VerificationService verificationService, TwoFactorAuthService twoFactorAuthService, ModelMapper modelMapper, KeystoreEncryptionService keystoreEncryptionService) {
         this.twoFactorAuthService = twoFactorAuthService;
         this.verificationService = verificationService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.modelMapper = modelMapper;
+        this.keystoreEncryptionService = keystoreEncryptionService;
     }
 
     @Transactional
@@ -144,7 +146,15 @@ public class UserService {
         KeyGenerator keyGen = KeyGenerator.getInstance("AES");
         keyGen.init(256);
         SecretKey secretKey = keyGen.generateKey();
-        user.setEncryptionKey(Base64.getEncoder().encodeToString(secretKey.getEncoded()));
+        String plainUserKey = Base64.getEncoder().encodeToString(secretKey.getEncoded());
+        
+        // Encrypt the user encryption key with master key before storing in database
+        try {
+            String encryptedUserKey = keystoreEncryptionService.encryptUserKey(plainUserKey);
+            user.setEncryptionKey(encryptedUserKey);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to encrypt user encryption key", e);
+        }
     }
 
     public Optional<User> loginUser(LoginDto loginDto) {
