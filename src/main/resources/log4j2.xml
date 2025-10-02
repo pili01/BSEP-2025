@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="30">
+    <Properties>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %c{36} - %msg%n</Property>
+
+        <Property name="LOG_PATH">logs</Property>
+    </Properties>
+
+    <Appenders>
+
+        <Console name="ConsoleAppender" target="SYSTEM_OUT">
+            <ThresholdFilter level="INFO" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+
+        <RollingFile name="SecurityJsonAppender"
+                     fileName="${LOG_PATH}/security.json"
+                     filePattern="${LOG_PATH}/archive/security-%d{yyyy-MM-dd}-%i.json.gz">
+
+            <JsonLayout compact="true" eventEol="true" properties="true" includeStacktrace="true" stacktraceAsString="true">
+                <KeyValuePair key="time" value="$${date:yyyy-MM-dd HH:mm:ss.SSS}"/>
+                <KeyValuePair key="ip_address" value="$${ctx:ipAddress}"/> </JsonLayout>
+
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
+
+        <RollingFile name="SystemAppender"
+                     fileName="${LOG_PATH}/system.log"
+                     filePattern="${LOG_PATH}/archive/system-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="250MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="14"/>
+        </RollingFile>
+
+    </Appenders>
+
+    <Loggers>
+
+        <Logger name="com.bsep" level="DEBUG" additivity="false">
+            <AppenderRef ref="SecurityJsonAppender" level="INFO"/>
+            <AppenderRef ref="SystemAppender" level="DEBUG"/>
+            <AppenderRef ref="ConsoleAppender" level="INFO"/>
+        </Logger>
+
+        <Root level="WARN">
+            <AppenderRef ref="SystemAppender"/>
+            <AppenderRef ref="ConsoleAppender"/>
+        </Root>
+    </Loggers>
+</Configuration>
