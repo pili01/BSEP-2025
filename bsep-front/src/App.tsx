@@ -23,6 +23,8 @@ import ProtectedRoute from './components/ProtectedRoute'
 import CreateTemplatePage from './pages/CreateTemplatePage'
 import { UserRole } from './models/User'
 import CaUserIssueCertificatePage from './pages/CaUserIssueCertificatePage'
+import ChangeInitialPasswordPage from './pages/ChangeInitialPasswordPage'
+import RegisterCAUserPage from './pages/RegisterCAUserPage'
 
 function AppContent() {
   const [mode, setMode] = useState<'dark' | 'light'>('dark');
@@ -149,6 +151,16 @@ function AppContent() {
           <Route path='/caIssue' element={
               <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER]}> 
                   <CaUserIssueCertificatePage showSnackbar={showSnackbar} />
+              </ProtectedRoute>
+          } />
+          <Route path='/registerCA' element={
+            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}> 
+                <RegisterCAUserPage />
+            </ProtectedRoute>
+          } />
+          <Route path='/change-initial-password' element={
+              <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER]}> 
+                  <ChangeInitialPasswordPage />
               </ProtectedRoute>
           } />
         <Route path='*' element={<h1>404 Not Found</h1>} />

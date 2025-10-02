@@ -100,7 +100,8 @@ public class UserService {
 
         User caUser = new User();
         caUser.setEmail(registrationDto.getEmail());
-        caUser.setPassword(passwordEncoder.encode(registrationDto.getPassword()));
+        String temporaryPassword = generateRandomPassword();
+        caUser.setPassword(passwordEncoder.encode(temporaryPassword));
         caUser.setFirstName(registrationDto.getFirstName());
         caUser.setLastName(registrationDto.getLastName());
         caUser.setOrganization(registrationDto.getOrganization());
@@ -109,7 +110,29 @@ public class UserService {
         caUser.setPasswordChanged(false);
         generateAndSetEncryptionKey(caUser);
 
-        return userRepository.save(caUser);
+        User saved = userRepository.save(caUser);
+        emailService.sendInitialPasswordEmail(saved, temporaryPassword);
+        return saved;
+    }
+
+    private String generateRandomPassword() {
+        String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        String lower = "abcdefghjkmnpqrstuvwxyz";
+        String digits = "23456789";
+        String symbols = "!@#$%^&*()-_=+[]{}";
+        String all = upper + lower + digits + symbols;
+
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder();
+        // ensure at least one of each class
+        sb.append(upper.charAt(random.nextInt(upper.length())));
+        sb.append(lower.charAt(random.nextInt(lower.length())));
+        sb.append(digits.charAt(random.nextInt(digits.length())));
+        sb.append(symbols.charAt(random.nextInt(symbols.length())));
+        for (int i = 0; i < 8; i++) {
+            sb.append(all.charAt(random.nextInt(all.length())));
+        }
+        return sb.toString();
     }
 
     private void generateAndSetEncryptionKey(User user) throws NoSuchAlgorithmException {
@@ -134,6 +157,25 @@ public class UserService {
             }
         }
         return Optional.empty();
+    }
+
+    public void changeInitialPassword(User user, String newPassword) {
+        if (user.isPasswordChanged()) {
+            throw new RuntimeException("Initial password has already been changed.");
+        }
+
+        RegistrationDto tmp = new RegistrationDto();
+        tmp.setPassword(newPassword);
+        tmp.setConfirmPassword(newPassword);
+
+        var validationResult = tmp.isPasswordValid();
+        if (!validationResult.getFirst()) {
+            throw new RuntimeException(validationResult.getSecond());
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordChanged(true);
+        userRepository.save(user);
     }
 
     @Transactional

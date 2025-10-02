@@ -133,6 +133,17 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             </Menu>
           </Box>
 
+          {user && user?.role === UserRole.ADMIN && (
+            <Button
+              color="secondary" 
+              startIcon={<PlusOne />} 
+              sx={{ ml: 2, fontWeight: 'bold' }}
+              onClick={() => navigate('/registerCA')}
+            >
+              Register CA User
+            </Button>
+          )}
+
           {/* Logo mobilni */}
           <Box
             component="img"

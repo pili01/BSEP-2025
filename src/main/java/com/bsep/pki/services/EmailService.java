@@ -70,4 +70,27 @@ public class EmailService {
             Thread.currentThread().interrupt();
         }
     }
+
+    @Async
+    public void sendInitialPasswordEmail(User user, String temporaryPassword) {
+        try {
+            MimeMessage mail = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mail, true);
+
+            helper.setTo(user.getEmail());
+            helper.setFrom(env.getProperty("spring.mail.username"));
+            helper.setSubject("Privremena lozinka za CA korisnika - PKI Sistem");
+
+            String htmlMsg = "<p>Pozdrav " + user.getFirstName() + ",</p>"
+                    + "<p>Administrator je kreirao tvoj CA nalog.</p>"
+                    + "<p>Privremena lozinka: <b>" + temporaryPassword + "</b></p>"
+                    + "<p>Na prvom prijavljivanju moraš promeniti lozinku.</p>"
+                    + "<p>Hvala!</p>";
+
+            helper.setText(htmlMsg, true);
+            javaMailSender.send(mail);
+        } catch (MessagingException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
 }
