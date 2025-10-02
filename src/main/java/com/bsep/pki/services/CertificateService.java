@@ -21,7 +21,7 @@ import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import java.io.*;
 import java.math.BigInteger;
 import java.security.*;
@@ -33,6 +33,11 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 public class CertificateService {
@@ -826,7 +831,7 @@ public class CertificateService {
 
 
         String keystorePath = caCertificate.getKeystorePath();
-        //saveAsTrustedCertificate(certificate, keystorePath, caKeystorePassword);
+        saveAsTrustedCertificate(certificate, keystorePath, caKeystorePassword);
 
         List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage)
                 .map(s -> Arrays.asList(s.split(",")))
@@ -1298,4 +1303,243 @@ public class CertificateService {
             throw new IllegalArgumentException("Failed to parse CSR from PEM: " + e.getMessage(), e);
         }
     }
+
+
+
+
+    @Transactional
+    public ResponseEntity<?> downloadCertificate(String serialNumber, User requestingUser, UserRole userRole, String userOrganization) throws Exception {
+        Optional<Certificate> certOpt = certificateRepository.findBySerialNumber(serialNumber);
+        if (certOpt.isEmpty()) {
+            throw new IllegalArgumentException("Certificate with serial number " + serialNumber + " not found.");
+        }
+
+        Certificate cert = certOpt.get();
+
+        if (userRole != UserRole.ADMIN && userRole != UserRole.CA_USER && userRole != UserRole.REGULAR_USER) {
+            throw new SecurityException("Invalid user role for certificate download.");
+        }
+
+        if (cert.isRevoked()) {
+            throw new IllegalArgumentException("Cannot download revoked certificate.");
+        }
+
+        if (cert.getType() == CertificateType.END_ENTITY) {
+            if (userRole == UserRole.REGULAR_USER && !cert.getUser().getId().equals(requestingUser.getId())) {
+                throw new SecurityException("You can only download your own End-Entity certificates.");
+            }
+            return downloadEndEntityCertificate(cert);
+        }
+
+        if (cert.getUser().getId().equals(requestingUser.getId())) {
+            return downloadCertificateWithPrivateKey(cert, requestingUser);
+        }
+
+        if (userRole == UserRole.ADMIN) {
+            // Admin can download CA certificates (ROOT/INTERMEDIATE) with private key
+            // since they manage the PKI infrastructure
+            if (cert.getType() == CertificateType.ROOT || cert.getType() == CertificateType.INTERMEDIATE) {
+                // Download with private key using the certificate owner's encryption key
+                return downloadCertificateWithPrivateKey(cert, cert.getUser());
+            } else {
+                // For End-Entity certificates of other users, admin gets public only
+                return downloadCertificatePublicOnly(cert);
+            }
+        }
+
+        if (userRole == UserRole.CA_USER) {
+            if (!cert.getOrganization().equals(userOrganization)) {
+                throw new SecurityException("You can only download certificates from your organization: " + userOrganization);
+            }
+
+            // CA users cannot download Root certificates (they are above them in hierarchy)
+            if (cert.getType() == CertificateType.ROOT) {
+                throw new SecurityException("CA users cannot download Root certificates from their organization chain.");
+            } else {
+                throw new SecurityException("You can only download your own Intermediate CA certificates.");
+            }
+        }
+
+        throw new SecurityException("You can only download your own certificates.");
+    }
+
+    private ResponseEntity<?> downloadEndEntityCertificate(Certificate cert) throws Exception {
+        try {
+
+            KeyStore keyStore = KeyStore.getInstance("JKS");
+            File keystoreFile = new File(cert.getKeystorePath());
+
+            if (!keystoreFile.exists()) {
+                throw new IllegalArgumentException("Keystore file not found.");
+            }
+
+            Optional<Certificate> caCertOpt = certificateRepository.findByKeystorePathAndTypeIn(
+                            cert.getKeystorePath(),
+                            Arrays.asList(CertificateType.ROOT, CertificateType.INTERMEDIATE)
+                    ).stream()
+                    .filter(ca -> ca.getKeystorePassword() != null)
+                    .findFirst();
+
+            if (caCertOpt.isEmpty()) {
+                throw new IllegalArgumentException("Cannot find CA certificate with keystore access for this keystore.");
+            }
+
+            Certificate caCert = caCertOpt.get();
+            String keystorePassword = encryptionService.decrypt(caCert.getKeystorePassword(), caCert.getUser().getEncryptionKey());
+
+            try (FileInputStream fis = new FileInputStream(keystoreFile)) {
+                keyStore.load(fis, keystorePassword.toCharArray());
+            }
+
+            // EE certificates are stored with serial number as alias
+            X509Certificate x509Cert = (X509Certificate) keyStore.getCertificate(cert.getSerialNumber());
+            if (x509Cert == null) {
+                throw new IllegalArgumentException("Certificate not found in keystore with serial number: " + cert.getSerialNumber());
+            }
+
+
+            StringWriter writer = new StringWriter();
+            try (JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+                pemWriter.writeObject(x509Cert);
+            }
+
+            String pemContent = writer.toString();
+            String fileName = cert.getAlias() + "_certificate.pem";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", fileName);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pemContent.getBytes());
+
+        } catch (Exception e) {
+            throw new Exception("Failed to download End-Entity certificate: " + e.getMessage(), e);
+        }
+    }
+
+    private ResponseEntity<?> downloadCertificateWithPrivateKey(Certificate cert, User requestingUser) throws Exception {
+        try {
+
+            String keystorePassword = encryptionService.decrypt(cert.getKeystorePassword(), cert.getUser().getEncryptionKey());
+
+            KeyStore keyStore = KeyStore.getInstance("JKS");
+            try (FileInputStream fis = new FileInputStream(cert.getKeystorePath())) {
+                keyStore.load(fis, keystorePassword.toCharArray());
+            }
+
+            X509Certificate x509Cert = (X509Certificate) keyStore.getCertificate(cert.getAlias());
+            PrivateKey privateKey = (PrivateKey) keyStore.getKey(cert.getAlias(), keystorePassword.toCharArray());
+
+            if (x509Cert == null || privateKey == null) {
+                throw new IllegalArgumentException("Certificate or private key not found in keystore.");
+            }
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+
+                ZipEntry certEntry = new ZipEntry(cert.getAlias() + "_certificate.pem");
+                zos.putNextEntry(certEntry);
+                StringWriter certWriter = new StringWriter();
+                try (JcaPEMWriter pemWriter = new JcaPEMWriter(certWriter)) {
+                    pemWriter.writeObject(x509Cert);
+                }
+                zos.write(certWriter.toString().getBytes());
+                zos.closeEntry();
+
+
+                ZipEntry keyEntry = new ZipEntry(cert.getAlias() + "_private_key.pem");
+                zos.putNextEntry(keyEntry);
+                StringWriter keyWriter = new StringWriter();
+                try (JcaPEMWriter pemWriter = new JcaPEMWriter(keyWriter)) {
+                    pemWriter.writeObject(privateKey);
+                }
+                zos.write(keyWriter.toString().getBytes());
+                zos.closeEntry();
+
+                ZipEntry passwordEntry = new ZipEntry("keystore_info.txt");
+                zos.putNextEntry(passwordEntry);
+                String passwordInfo = "Keystore Path: " + cert.getKeystorePath() + "\n" +
+                        "Alias: " + cert.getAlias() + "\n" +
+                        "Keystore Password: " + keystorePassword + "\n" +
+                        "Certificate Type: " + cert.getType() + "\n" +
+                        "Serial Number: " + cert.getSerialNumber();
+                zos.write(passwordInfo.getBytes());
+                zos.closeEntry();
+            }
+
+            String fileName = cert.getAlias() + "_" + cert.getType().name().toLowerCase() + "_bundle.zip";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("application/zip"));
+            headers.setContentDispositionFormData("attachment", fileName);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(baos.toByteArray());
+
+        } catch (Exception e) {
+            throw new Exception("Failed to download certificate with private key: " + e.getMessage(), e);
+        }
+    }
+
+    private ResponseEntity<?> downloadCertificatePublicOnly(Certificate cert) throws Exception {
+        try {
+
+            Optional<Certificate> caCertOpt = certificateRepository.findByKeystorePathAndTypeIn(
+                            cert.getKeystorePath(),
+                            Arrays.asList(CertificateType.ROOT, CertificateType.INTERMEDIATE)
+                    ).stream()
+                    .filter(ca -> ca.getKeystorePassword() != null)
+                    .findFirst();
+
+            if (caCertOpt.isEmpty()) {
+                throw new IllegalArgumentException("Cannot find CA certificate with keystore access for this keystore.");
+            }
+
+            Certificate caCert = caCertOpt.get();
+            String keystorePassword = encryptionService.decrypt(caCert.getKeystorePassword(), caCert.getUser().getEncryptionKey());
+
+
+            KeyStore keyStore = KeyStore.getInstance("JKS");
+            try (FileInputStream fis = new FileInputStream(cert.getKeystorePath())) {
+                keyStore.load(fis, keystorePassword.toCharArray());
+            }
+
+
+            X509Certificate x509Cert = (X509Certificate) keyStore.getCertificate(cert.getAlias());
+            if (x509Cert == null) {
+                throw new IllegalArgumentException("Certificate not found in keystore.");
+            }
+
+
+            StringWriter writer = new StringWriter();
+            try (JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+                pemWriter.writeObject(x509Cert);
+            }
+
+            String pemContent = writer.toString();
+            String fileName = cert.getAlias() + "_certificate.pem";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", fileName);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pemContent.getBytes());
+
+        } catch (Exception e) {
+            throw new Exception("Failed to download certificate (public only): " + e.getMessage(), e);
+        }
+    }
+
+
+
+
+
+
+
+
+
 }

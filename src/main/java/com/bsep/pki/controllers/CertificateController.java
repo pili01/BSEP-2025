@@ -497,6 +497,40 @@ public class CertificateController {
         }
     }
 
+
+
+
+    @GetMapping("/download/{serialNumber}")
+    public ResponseEntity<?> downloadCertificate(@PathVariable String serialNumber, HttpServletRequest request) {
+        try {
+            String token = getJwtFromRequest(request);
+            if (!StringUtils.hasText(token)) {
+                return new ResponseEntity<>("Authorization token is missing.", HttpStatus.UNAUTHORIZED);
+            }
+
+            UserRole userRole = jwtProvider.getRoleFromToken(token);
+            String userEmail = jwtProvider.getEmailFromToken(token);
+            String userOrganization = jwtProvider.getOrganizationFromToken(token);
+
+            Optional<User> optionalUser = userService.findByEmail(userEmail);
+            if (optionalUser.isEmpty()) {
+                return new ResponseEntity<>("Authenticated user not found.", HttpStatus.UNAUTHORIZED);
+            }
+
+            User requestingUser = optionalUser.get();
+
+            return certificateService.downloadCertificate(serialNumber, requestingUser, userRole, userOrganization);
+
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (SecurityException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.FORBIDDEN);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new ResponseEntity<>("An error occurred while downloading certificate: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {

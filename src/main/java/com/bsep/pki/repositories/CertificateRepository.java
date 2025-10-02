@@ -17,6 +17,7 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
     List<Certificate> findByOrganizationAndType(String organization, CertificateType type);
     List<Certificate> findByIssuerSerialNumber(String issuerSerialNumber);
     List<Certificate> findByTypeAndOrganizationAndUser_Id(CertificateType type, String organization, Long userId);
+    List<Certificate> findByKeystorePathAndTypeIn(String keystorePath, List<CertificateType> types);
 
     List<Certificate> findByIsRevokedTrue();
 }

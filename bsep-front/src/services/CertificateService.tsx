@@ -111,6 +111,33 @@ class CertificateService {
         return await this.handleResponse(response, 'Failed to get intermediate certificates');
     }
 
+    // Download certificate by serial number
+    static async downloadCertificate(serialNumber: string): Promise<void> {
+        const jwt = localStorage.getItem('jwt');
+        if (!jwt) throw new Error('No JWT token found');
+
+        const response = await fetch(`${API_URL}/certificates/download/${serialNumber}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${jwt}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to download certificate');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `certificate-${serialNumber}.pem`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    }
+
     private static async handleResponse(response: Response, defaultErrorMessage: string) {
         if (response.status < 200 || response.status >= 300) {
             const errorText = await response.text();

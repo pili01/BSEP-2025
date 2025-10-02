@@ -8,9 +8,11 @@ import {
   Alert,
   Box,
   Chip,
-  Divider
+  Divider,
+  Button
 } from '@mui/material';
 import Assignment from '@mui/icons-material/Assignment';
+import Download from '@mui/icons-material/Download';
 
 interface CertificateData {
   serialNumber: string;
@@ -130,6 +132,77 @@ const CACertificates: React.FC = () => {
     return subjectName;
   };
 
+  const handleDownload = async (serialNumber: string) => {
+    try {
+      const token = localStorage.getItem('jwt');
+      if (!token) {
+        alert('No authentication token found');
+        return;
+      }
+
+      const response = await fetch(`https://localhost:8443/api/certificates/download/${serialNumber}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        
+        // Handle specific error for CA users trying to download Root certificates
+        if (errorText.includes('CA users cannot download Root certificates')) {
+          alert('CA users cannot download Root certificates from their organization chain.');
+          return;
+        }
+        
+        throw new Error(`Download failed: ${errorText}`);
+      }
+
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `certificate_${serialNumber}`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Get content type to determine file extension
+      const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+      
+      // Add proper extension based on content type
+      if (contentType.includes('application/zip')) {
+        if (!filename.endsWith('.zip')) {
+          filename += '.zip';
+        }
+      } else if (contentType.includes('application/octet-stream') || contentType.includes('text/plain')) {
+        // For PEM files, add .pem extension if not already present
+        if (!filename.endsWith('.pem') && !filename.endsWith('.zip')) {
+          filename += '.pem';
+        }
+      }
+
+      // Create blob with proper MIME type
+      const blob = new Blob([await response.arrayBuffer()], { type: contentType });
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+    } catch (error) {
+      console.error('Download error:', error);
+      alert(`Failed to download certificate: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   if (loading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
@@ -164,17 +237,40 @@ const CACertificates: React.FC = () => {
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 3 }}>
           {certificates.map((cert) => (
-            <Card key={cert.id} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card key={cert.serialNumber} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <CardContent sx={{ flexGrow: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Typography variant="h6" component="h2" gutterBottom>
                     {parseSubjectName(cert.subjectName)}
                   </Typography>
-                  <Chip
-                    label={getStatusText(cert.isRevoked, cert.endDate)}
-                    color={getStatusColor(cert.isRevoked, cert.endDate) as any}
-                    size="small"
-                  />
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Chip
+                      label={getStatusText(cert.isRevoked, cert.endDate)}
+                      color={getStatusColor(cert.isRevoked, cert.endDate) as any}
+                      size="small"
+                    />
+                    {cert.type === 'ROOT' ? (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Download />}
+                        disabled={true}
+                        title="CA users cannot download Root certificates from their organization chain"
+                      >
+                        DOWNLOAD
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Download />}
+                        onClick={() => handleDownload(cert.serialNumber)}
+                        disabled={cert.isRevoked}
+                      >
+                        Download
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
 
                 <Typography variant="body2" color="text.secondary" gutterBottom>
