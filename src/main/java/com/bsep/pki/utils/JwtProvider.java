@@ -44,6 +44,7 @@ public class JwtProvider {
                 .claim("userId", user.getId())
                 .claim("role", user.getRole().name())
                 .claim("organization", user.getOrganization())
+                .claim("initialPassword", user.getRole() == UserRole.CA_USER && !user.isPasswordChanged())
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
 
@@ -85,5 +86,10 @@ public class JwtProvider {
 
     public String getOrganizationFromToken(String token) {
         return getClaimsFromToken(token).get("organization", String.class);
+    }
+
+    public boolean isInitialPasswordToken(String token) {
+        Boolean flag = getClaimsFromToken(token).get("initialPassword", Boolean.class);
+        return flag != null && flag;
     }
 }

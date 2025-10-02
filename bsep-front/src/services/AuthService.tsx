@@ -1,6 +1,11 @@
 const API_URL = import.meta.env.VITE_API_URL || '';
 import { RegistrationData } from '../models/User';
 
+interface ChangePasswordResponse {
+    token: string;
+    message?: string;
+}
+
 class AuthService {
 	static async register(user: RegistrationData) {
 		const response = await fetch(`${API_URL}/auth/register`, {
@@ -86,6 +91,21 @@ class AuthService {
 		return await this.handleResponse(response, 'Failed to verify 2fa code');
 	}
 
+	static async registerCAUser(userData: RegistrationData) {
+        const jwt = localStorage.getItem('jwt');
+        if (!jwt) throw new Error('No JWT token found');
+        
+        const response = await fetch(`${API_URL}/admin/register-ca-user`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${jwt}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData),
+        });
+        return await this.handleResponse(response, 'CA User registration failed'); 
+    }
+
 	static async logout() {
     const jwt = localStorage.getItem('jwt');
     if (jwt) {
@@ -107,6 +127,21 @@ class AuthService {
 
     localStorage.removeItem('jwt');
 }
+
+	static async changeInitialPassword(data: { newPassword: string }): Promise<ChangePasswordResponse> {
+			const jwt = localStorage.getItem('jwt');
+			if (!jwt) throw new Error('No JWT token found');
+
+			const response = await fetch(`${API_URL}/auth/change-initial-password`, {
+					method: 'POST',
+					headers: {
+							'Authorization': `Bearer ${jwt}`,
+							'Content-Type': 'application/json',
+					},
+					body: JSON.stringify(data), 
+			});
+			return await this.handleResponse(response, 'Failed to change initial password');
+	}
 
 	static async handleResponse(response: Response, defaultErrorMessage: string) {
 		if (response.status < 200 || response.status >= 300) {

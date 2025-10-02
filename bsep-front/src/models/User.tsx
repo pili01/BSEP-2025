@@ -16,6 +16,7 @@ export interface User {
     role: UserRole;
     publicKey: string;
     token?: string; // JWT token
+    isInitialPassword: boolean;
 }
 
 export enum UserRole {

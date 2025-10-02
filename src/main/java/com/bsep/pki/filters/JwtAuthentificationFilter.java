@@ -43,9 +43,8 @@ public class JwtAuthentificationFilter extends OncePerRequestFilter {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
                     if (jwtToken.validateToken(jwt)) {
-                        // Kreiranje instance TokenBasedAuthentication sa korisničkim podacima
                         TokenBasedAuthentication authentication = new TokenBasedAuthentication(userDetails);
-                        authentication.setToken(jwt); // Postavljanje JWT tokena
+                        authentication.setToken(jwt);
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                     }

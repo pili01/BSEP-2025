@@ -27,11 +27,25 @@ public class UserActivityFilter implements Filter {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String authHeader = httpRequest.getHeader("Authorization");
+        String uri = httpRequest.getRequestURI();
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             if (jwtProvider.validateToken(token)) {
                 String jti = jwtProvider.getJtiFromToken(token);
+                boolean initial = jwtProvider.isInitialPasswordToken(token);
+                if (initial) {
+                    // Allow only auth endpoints when initial password token is used
+                    if (uri.startsWith("/api/auth")) {
+                        chain.doFilter(request, response);
+                        return;
+                    } else {
+                        httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        httpResponse.setContentType("application/json");
+                        httpResponse.getWriter().write("{\"message\":\"Password change required\"}");
+                        return;
+                    }
+                }
 
                 if (userSessionService.findSessionByJti(jti).isEmpty()) {
                     httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

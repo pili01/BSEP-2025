@@ -5,6 +5,7 @@ import com.bsep.pki.dtos.LoginDto;
 import com.bsep.pki.dtos.PasswordResetDto;
 import com.bsep.pki.dtos.RegistrationDto;
 import com.bsep.pki.models.User;
+import com.bsep.pki.models.UserRole;
 import com.bsep.pki.services.*;
 import com.bsep.pki.utils.JwtProvider;
 import jakarta.servlet.http.HttpServletRequest; // Import
@@ -84,6 +85,17 @@ public class AuthController {
                     return new ResponseEntity<>(Map.of("message", "User not verified. Please check your email for verification link."), HttpStatus.UNAUTHORIZED);
                 }
 
+                if (!user.isPasswordChanged() && user.getRole() == UserRole.CA_USER) {
+                    GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + user.getRole().name());
+                    Authentication authentication = new UsernamePasswordAuthenticationToken(user, null, Collections.singletonList(authority));
+                    String token = jwtProvider.generateToken(authentication);
+                    log.info("Initial password required for CA_USER, issuing restricted token for user: {} from IP: {}", loginDto.getEmail(), ipAddress);
+                    return new ResponseEntity<>(Map.of(
+                            "requirePasswordChange", "INITIAL_PASSWORD",
+                            "token", token
+                    ), HttpStatus.OK);
+                }
+
                 if (user.isTwoFactorEnabled()) {
                     log.info("2FA required for user: {} from IP: {}", loginDto.getEmail(), ipAddress);
                     return new ResponseEntity<>(Map.of("twoFaEnabled", "2FA_REQUIRED"), HttpStatus.OK);
@@ -107,6 +119,54 @@ public class AuthController {
         } catch (Exception e) {
             log.error("Login error for user: {} from IP: {} - {}", loginDto.getEmail(), ipAddress, e.getMessage(), e);
             return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PostMapping("/change-initial-password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> changeInitialPassword(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        String ipAddress = request.getRemoteAddr();
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String email = user.getEmail();
+        String newPassword = body.get("newPassword");
+
+        log.info("Initial password change attempt for user: {} from IP: {}", email, ipAddress);
+
+        if (newPassword == null || newPassword.isEmpty()) {
+            log.warn("Initial password change failed for user: {} from IP: {}: New password missing.", email, ipAddress);
+            return new ResponseEntity<>(Map.of("message", "New password is required."), HttpStatus.BAD_REQUEST);
+        }
+
+        if (!user.isPasswordChanged()) {
+            try {
+                userService.changeInitialPassword(user, newPassword);
+
+                User updatedUser = userService.findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("User not found after password change."));
+
+                GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + updatedUser.getRole().name());
+                Authentication authentication = new UsernamePasswordAuthenticationToken(updatedUser, null, Collections.singletonList(authority));
+                String newToken = jwtProvider.generateToken(authentication);
+
+                String oldToken = request.getHeader("Authorization").substring(7);
+                String oldJti = jwtProvider.getJtiFromToken(oldToken);
+                userSessionService.deleteSessionByJti(oldJti);
+
+                String newJti = jwtProvider.getJtiFromToken(newToken);
+                String device = request.getHeader("User-Agent");
+                userSessionService.createSession(updatedUser, newJti, device, ipAddress);
+
+                log.info("Initial password changed and NEW TOKEN issued for user: {} from IP: {}", email, ipAddress);
+
+                return ResponseEntity.ok(Map.of("token", newToken));
+
+            } catch (RuntimeException e) {
+                log.error("Initial password change failed for user: {} from IP: {} - {}", email, ipAddress, e.getMessage(), e);
+                return new ResponseEntity<>(Map.of("message", e.getMessage()), HttpStatus.BAD_REQUEST);
+            }
+        } else {
+            log.warn("Unauthorized password change attempt for user: {} from IP: {}. Initial password already changed.", email, ipAddress);
+            return new ResponseEntity<>(Map.of("message", "Initial password has already been changed."), HttpStatus.FORBIDDEN);
         }
     }
 
