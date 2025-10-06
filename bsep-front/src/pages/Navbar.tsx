@@ -10,6 +10,7 @@ import Container from '@mui/material/Container';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
+import WarningIcon from '@mui/icons-material/WarningAmber';
 import MenuItem from '@mui/material/MenuItem';
 import AppLogo from '../assets/logo.png';
 import Add from '@mui/icons-material/Add';
@@ -29,7 +30,7 @@ interface NavBarProps {
 }
 
 function NavBar({ toggleTheme, mode }: NavBarProps) {
-  const pages = ['Products', 'Pricing', 'Password manager'];
+  const pages = [/*'Products', 'Pricing',*/ 'Password manager'];
   const { user, logout } = useUser();
   const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
@@ -104,6 +105,39 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               onClose={handleCloseNavMenu}
               sx={{ display: { xs: 'block', md: 'none' } }}
             >
+              {user?.role === UserRole.REGULAR_USER && (
+                <MenuItem
+                  onClick={() => {
+                    handleCloseNavMenu();
+                    navigate('/my-certificates');
+                  }}
+                >
+                  <Assignment sx={{ mr: 1 }} />
+                  <Typography>Certificates</Typography>
+                </MenuItem>
+              )}
+              {user && (
+                <MenuItem
+                  onClick={() => {
+                    handleCloseNavMenu();
+                    navigate('/sessions');
+                  }}
+                >
+                  <VpnKeyIcon sx={{ mr: 1 }} />
+                  <Typography>Sessions</Typography>
+                </MenuItem>
+              )}
+              {user?.role === UserRole.REGULAR_USER && (
+                <MenuItem
+                  onClick={() => {
+                    handleCloseNavMenu();
+                    navigate('/create-csr');
+                  }}
+                >
+                  <Add sx={{ mr: 1 }} />
+                  <Typography>Create CSR</Typography>
+                </MenuItem>
+              )}
               {pages.map((page) => {
                 if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) return null;
                 return (
@@ -135,8 +169,8 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
 
           {user && user?.role === UserRole.ADMIN && (
             <Button
-              color="secondary" 
-              startIcon={<PlusOne />} 
+              color="secondary"
+              startIcon={<PlusOne />}
               sx={{ ml: 2, fontWeight: 'bold' }}
               onClick={() => navigate('/registerCA')}
             >
@@ -181,6 +215,39 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
 
           {/* Glavni meni desktop */}
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
+            {user?.role === UserRole.REGULAR_USER && (
+              <MenuItem
+                onClick={() => {
+                  handleCloseNavMenu();
+                  navigate('/my-certificates');
+                }}
+              >
+                <Assignment sx={{ mr: 1 }} />
+                <Typography>Certificates</Typography>
+              </MenuItem>
+            )}
+            {user && (
+              <MenuItem
+                onClick={() => {
+                  handleCloseNavMenu();
+                  navigate('/sessions');
+                }}
+              >
+                <VpnKeyIcon sx={{ mr: 1 }} />
+                <Typography>Sessions</Typography>
+              </MenuItem>
+            )}
+            {user?.role === UserRole.REGULAR_USER && (
+              <MenuItem
+                onClick={() => {
+                  handleCloseNavMenu();
+                  navigate('/create-csr');
+                }}
+              >
+                <Add sx={{ mr: 1 }} />
+                <Typography>Create CSR</Typography>
+              </MenuItem>
+            )}
             {pages.map((page) => {
               if (page === 'Password manager' && user?.role !== UserRole.REGULAR_USER) return null;
               return (
@@ -202,7 +269,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
           </Box>
 
           {/* Dugmad za akcije */}
-          {user && (
+          {/* {user && (
             <Button
               color="primary"
               startIcon={<VpnKeyIcon />}
@@ -211,7 +278,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             >
               Sessions
             </Button>
-          )}
+          )} */}
           {user && (user?.role === UserRole.ADMIN || user?.role === UserRole.CA_USER) && (
             <Button
               color="primary"
@@ -262,7 +329,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
               Certificates
             </Button>
           )}
-          {user?.role === UserRole.REGULAR_USER && (
+          {/* {user?.role === UserRole.REGULAR_USER && (
             <Button
               color="primary"
               startIcon={<Assignment />}
@@ -271,8 +338,8 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             >
               Certificates
             </Button>
-          )}
-          {user?.role === UserRole.REGULAR_USER && (
+          )} */}
+          {/* {user?.role === UserRole.REGULAR_USER && (
             <Button
               color="primary"
               startIcon={<Add />}
@@ -281,7 +348,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
             >
               Create CSR
             </Button>
-          )}
+          )} */}
           {user?.role === UserRole.CA_USER && (
             <Button
               color="secondary"
@@ -295,6 +362,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
           {!user?.twoFactorEnabled && (
             <Button
               color="warning"
+              startIcon={<WarningIcon />}
               sx={{ ml: 2, fontWeight: 'bold' }}
               onClick={() => navigate('/enable-2fa')}
             >
@@ -311,7 +379,7 @@ function NavBar({ toggleTheme, mode }: NavBarProps) {
                     backgroundColor: mode === 'dark' ? 'white' : 'inherit',
                     border: mode === 'light' ? '1px solid white' : 'none',
                   }}
-                  alt={user?.firstName}
+                  alt={user?.firstName} src="/static/images/avatar/3.jpg"
                 />
               </IconButton>
             </Tooltip>

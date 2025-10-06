@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import NavBar from './pages/Navbar'
-import { Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
@@ -86,7 +86,7 @@ function AppContent() {
       <Routes>
         <Route path='/' element={
           <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN, UserRole.REGULAR_USER, UserRole.CA_USER]}>
-            <h1>Home page</h1>
+            <Navigate to="/my-certificates" replace />
           </ProtectedRoute>
         } />
         <Route path='/login' element={<Login showSnackbar={showSnackbar} />} />
