@@ -35,7 +35,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
     const location = useLocation();
-    const pagesNotToRedirect = ['/login', '/sign-up', '/verify-email', '/2fa', '/change-initial-password']; // DODATO
+    const pagesNotToRedirect = ['/login', '/sign-up', '/verify-email', '/2fa', '/change-initial-password','/forgot-password', '/reset-password']; // DODATO
 
     useEffect(() => {
         // Poziva se nakon što se korisnik setuje (ili nakon svakog rendera)

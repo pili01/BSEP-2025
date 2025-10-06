@@ -34,7 +34,7 @@ public class EmailService {
             String htmlMsg = "<p>Pozdrav " + registrationDto.getFirstName() + ",</p>"
                     + "<p>Klikni na link ispod kako bi izvršio verifikaciju svog naloga:</p>"
                     + "<a href='" + link + "'>Verifikuj svoj nalog</a>"
-                    + "<p>Link važI 24 sata.</p>"
+                    + "<p>Link važi 24 sata.</p>"
                     + "<p>Hvala!</p>";
 
             helper.setText(htmlMsg, true);
@@ -54,12 +54,12 @@ public class EmailService {
 
             helper.setTo(user.getEmail());
             helper.setFrom(env.getProperty("spring.mail.username"));
-            helper.setSubject("Reset lozinke - PKI Sistem");
+            helper.setSubject("Reset lozinke - BSEP Aplikacija");
 
             String htmlMsg = "<p>Pozdrav " + user.getFirstName() + ",</p>"
                     + "<p>Klikni na link ispod kako bi resetovao svoju lozinku:</p>"
                     + "<a href='" + link + "'>Resetuj lozinku</a>"
-                    + "<p>Link je važan 24 sata.</p>"
+                    + "<p>Link važi 24 sata.</p>"
                     + "<p>Hvala!</p>";
 
             helper.setText(htmlMsg, true);

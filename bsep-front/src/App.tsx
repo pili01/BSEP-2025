@@ -25,6 +25,8 @@ import { UserRole } from './models/User'
 import CaUserIssueCertificatePage from './pages/CaUserIssueCertificatePage'
 import ChangeInitialPasswordPage from './pages/ChangeInitialPasswordPage'
 import RegisterCAUserPage from './pages/RegisterCAUserPage'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 
 function AppContent() {
   const [mode, setMode] = useState<'dark' | 'light'>('dark');
@@ -91,6 +93,8 @@ function AppContent() {
         } />
         <Route path='/login' element={<Login showSnackbar={showSnackbar} />} />
         <Route path='/sign-up' element={<SignUp showSnackbar={showSnackbar} />} />
+        <Route path='/forgot-password' element={<ForgotPassword showSnackbar={showSnackbar} />} />
+        <Route path='/reset-password' element={<ResetPassword showSnackbar={showSnackbar} />} />
         <Route path='/verify-email' element={<VerifyEmail showSnackbar={showSnackbar} />} />
         <Route path='/2fa' element={<TwoFactorAuth showSnackbar={showSnackbar} />} />
         <Route path='/enable-2fa' element={

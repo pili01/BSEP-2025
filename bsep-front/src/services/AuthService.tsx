@@ -2,8 +2,8 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 import { RegistrationData } from '../models/User';
 
 interface ChangePasswordResponse {
-    token: string;
-    message?: string;
+	token: string;
+	message?: string;
 }
 
 class AuthService {
@@ -45,6 +45,28 @@ class AuthService {
 			method: 'GET',
 		});
 		return await this.handleResponse(response, 'Email verification failed');
+	}
+
+	static async forgotPassword(email: string) {
+		const response = await fetch(`${API_URL}/auth/forgot-password`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ email }),
+		});
+		return await this.handleResponse(response, 'Forgot password request failed');
+	}
+
+	static async resetPassword(token: string | null, password: string, confirmPassword: string, email: string | null) {
+		const response = await fetch(`${API_URL}/auth/reset-password`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ token, email, password, confirmPassword }),
+		});
+		return await this.handleResponse(response, 'Password reset failed');
 	}
 
 	static async enable2fa() {
@@ -92,55 +114,55 @@ class AuthService {
 	}
 
 	static async registerCAUser(userData: RegistrationData) {
-        const jwt = localStorage.getItem('jwt');
-        if (!jwt) throw new Error('No JWT token found');
-        
-        const response = await fetch(`${API_URL}/admin/register-ca-user`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${jwt}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(userData),
-        });
-        return await this.handleResponse(response, 'CA User registration failed'); 
-    }
+		const jwt = localStorage.getItem('jwt');
+		if (!jwt) throw new Error('No JWT token found');
+
+		const response = await fetch(`${API_URL}/admin/register-ca-user`, {
+			method: 'POST',
+			headers: {
+				'Authorization': `Bearer ${jwt}`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(userData),
+		});
+		return await this.handleResponse(response, 'CA User registration failed');
+	}
 
 	static async logout() {
-    const jwt = localStorage.getItem('jwt');
-    if (jwt) {
-        try {
-            const response = await fetch(`${API_URL}/auth/logout`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${jwt}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-            if (response.status < 200 || response.status >= 300) {
-                console.warn('Backend logout failed, but continuing with local logout');
-            }
-        } catch (error) {
-            console.warn('Backend logout request failed:', error);
-        }
-    }
-
-    localStorage.removeItem('jwt');
-}
-
-	static async changeInitialPassword(data: { newPassword: string }): Promise<ChangePasswordResponse> {
-			const jwt = localStorage.getItem('jwt');
-			if (!jwt) throw new Error('No JWT token found');
-
-			const response = await fetch(`${API_URL}/auth/change-initial-password`, {
+		const jwt = localStorage.getItem('jwt');
+		if (jwt) {
+			try {
+				const response = await fetch(`${API_URL}/auth/logout`, {
 					method: 'POST',
 					headers: {
-							'Authorization': `Bearer ${jwt}`,
-							'Content-Type': 'application/json',
+						'Authorization': `Bearer ${jwt}`,
+						'Content-Type': 'application/json',
 					},
-					body: JSON.stringify(data), 
-			});
-			return await this.handleResponse(response, 'Failed to change initial password');
+				});
+				if (response.status < 200 || response.status >= 300) {
+					console.warn('Backend logout failed, but continuing with local logout');
+				}
+			} catch (error) {
+				console.warn('Backend logout request failed:', error);
+			}
+		}
+
+		localStorage.removeItem('jwt');
+	}
+
+	static async changeInitialPassword(data: { newPassword: string }): Promise<ChangePasswordResponse> {
+		const jwt = localStorage.getItem('jwt');
+		if (!jwt) throw new Error('No JWT token found');
+
+		const response = await fetch(`${API_URL}/auth/change-initial-password`, {
+			method: 'POST',
+			headers: {
+				'Authorization': `Bearer ${jwt}`,
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify(data),
+		});
+		return await this.handleResponse(response, 'Failed to change initial password');
 	}
 
 	static async handleResponse(response: Response, defaultErrorMessage: string) {

@@ -75,7 +75,7 @@ public class AuthController {
                 log.warn("Recaptcha verification failed for user: {} from IP: {}", loginDto.getEmail(), ipAddress);
                 return new ResponseEntity<>(Map.of("message", "Recaptcha verification failed."), HttpStatus.BAD_REQUEST);
             }
-            
+
             Optional<User> userOptional = userService.loginUser(loginDto);
 
             if (userOptional.isPresent()) {
@@ -311,7 +311,8 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@RequestParam String email, HttpServletRequest request) {
+    public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> requestBody, HttpServletRequest request) {
+        String email = requestBody.get("email");
         String ipAddress = request.getRemoteAddr();
         log.info("Password reset request for email: {} from IP: {}", email, ipAddress);
         log.debug("Sending password reset email to: {}", email);
@@ -330,13 +331,15 @@ public class AuthController {
     public ResponseEntity<String> resetPassword(@Valid @RequestBody PasswordResetDto passwordResetDto, HttpServletRequest request) {
         String ipAddress = request.getRemoteAddr();
         log.info("Password reset attempt for email: {} from IP: {}", passwordResetDto.getEmail(), ipAddress);
-        log.debug("Resetting password for email: {}, New password: {}", passwordResetDto.getEmail(), passwordResetDto.getNewPassword());
+        log.debug("Resetting password for email: {}, New password: {}", passwordResetDto.getEmail(), passwordResetDto.getConfirmPassword());
 
         try {
-            boolean success = passwordResetService.resetPassword(
-                    passwordResetDto.getEmail(),
-                    passwordResetDto.getNewPassword()
-            );
+            var validationResult = passwordResetDto.isPasswordValid();
+            if (!validationResult.getFirst()) {
+                log.warn("Password validation failed for email: {} from IP: {}", passwordResetDto.getEmail(), ipAddress);
+                return new ResponseEntity<>(validationResult.getSecond(), HttpStatus.BAD_REQUEST);
+            }
+            boolean success = passwordResetService.resetPassword(passwordResetDto);
             if (success) {
                 log.info("Password reset successfully for email: {} from IP: {}", passwordResetDto.getEmail(), ipAddress);
                 return new ResponseEntity<>("Password reset successfully", HttpStatus.OK);

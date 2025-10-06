@@ -2,6 +2,7 @@ package com.bsep.pki.services;
 
 import com.bsep.pki.models.VerificationToken;
 import com.bsep.pki.repositories.VerificationRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,7 @@ public class VerificationService {
         return verificationRepository.save(token);
     }
 
+    @Transactional
     public void markTokenAsUsed(String token) {
         int updatedRows = verificationRepository.setUsedTrue(token);
         if (updatedRows == 1) {

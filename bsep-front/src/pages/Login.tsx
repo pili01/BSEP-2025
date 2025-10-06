@@ -103,6 +103,10 @@ export default function Login({ showSnackbar }: Props) {
           {loading ? <CircularProgress size={24} /> : 'Log in'}
         </Button>
         <Typography variant="body2" align="center">
+          Forgotten password?{' '}
+          <Link href="/forgot-password">Reset it</Link>
+        </Typography>
+        <Typography variant="body2" align="center">
           Don&apos;t have an account?{' '}
           <Link href="/sign-up">Sign up</Link>
         </Typography>

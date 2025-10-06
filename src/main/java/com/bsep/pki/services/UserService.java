@@ -203,10 +203,9 @@ public class UserService {
                 throw new RuntimeException("User is already verified.");
             }
 
-            if (user.getCreatedAt().plusHours(24).isBefore(LocalDateTime.now())) {
-                throw new RuntimeException("Verification link has expired. Please register again.");
-            }
-
+//            if (user.getCreatedAt().plusHours(24).isBefore(LocalDateTime.now())) {
+//                throw new RuntimeException("Verification link has expired. Please register again.");
+//            }
 
             user.setVerified(true);
             userRepository.save(user);
