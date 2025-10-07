@@ -25,6 +25,7 @@ export interface Certificate {
     startDate: string; 
     endDate: string;   
     isRevoked: boolean;
+    revoked: boolean;
     revokedReason?: RevokedReason;
     revokedAt?: string; 
     type: CertificateType;

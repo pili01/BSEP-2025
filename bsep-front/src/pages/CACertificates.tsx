@@ -9,10 +9,21 @@ import {
   Box,
   Chip,
   Divider,
-  Button
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent
 } from '@mui/material';
 import Assignment from '@mui/icons-material/Assignment';
 import Download from '@mui/icons-material/Download';
+import Block from '@mui/icons-material/Block';
+import CertificateService from '../services/CertificateService';
 
 interface CertificateData {
   serialNumber: string;
@@ -22,16 +33,33 @@ interface CertificateData {
   issuerSerialNumber: string | null;
   startDate: string;
   endDate: string;
-  isRevoked: boolean;
+  revoked: boolean;
   keyUsage: string;
   extendedKeyUsage: string;
   issuerName: string;
 }
 
+// X.509 revocation reasons
+const REVOCATION_REASONS = [
+  { value: 'UNSPECIFIED', label: 'Unspecified' },
+  { value: 'KEY_COMPROMISE', label: 'Key Compromise' },
+  { value: 'CA_COMPROMISE', label: 'CA Compromise' },
+  { value: 'AFFILIATION_CHANGED', label: 'Affiliation Changed' },
+  { value: 'SUPERSEDED', label: 'Superseded' },
+  { value: 'CESSATION_OF_OPERATION', label: 'Cessation of Operation' },
+  { value: 'CERTIFICATE_HOLD', label: 'Certificate Hold' },
+  { value: 'PRIVILEGE_WITHDRAWN', label: 'Privilege Withdrawn' },
+  { value: 'AA_COMPROMISE', label: 'AA Compromise' }
+];
+
 const CACertificates: React.FC = () => {
   const [certificates, setCertificates] = useState<CertificateData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [revokeModalOpen, setRevokeModalOpen] = useState(false);
+  const [selectedCertificate, setSelectedCertificate] = useState<string | null>(null);
+  const [revocationReason, setRevocationReason] = useState<string>('');
+  const [revoking, setRevoking] = useState(false);
 
   useEffect(() => {
     fetchCertificateChain();
@@ -41,7 +69,7 @@ const CACertificates: React.FC = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('jwt');
-      
+
       if (!token) {
         setError('No authentication token found');
         return;
@@ -111,25 +139,66 @@ const CACertificates: React.FC = () => {
 
   const parseSubjectName = (subjectName: string) => {
     if (!subjectName) return 'Unknown';
-    
+
     // If it contains OID format, try to extract readable parts
     if (subjectName.includes('1.2.840.113549.1.9.1')) {
       // Extract CN if available
       const cnMatch = subjectName.match(/CN=([^,]+)/);
       if (cnMatch) return cnMatch[1];
-      
+
       // Extract O if available  
       const oMatch = subjectName.match(/O=([^,]+)/);
       if (oMatch) return oMatch[1];
-      
+
       return 'Email Certificate';
     }
-    
+
     // Extract CN from normal format
     const cnMatch = subjectName.match(/CN=([^,]+)/);
     if (cnMatch) return cnMatch[1];
-    
+
     return subjectName;
+  };
+
+  const handleRevokeClick = (serialNumber: string) => {
+    setSelectedCertificate(serialNumber);
+    setRevokeModalOpen(true);
+    setRevocationReason('');
+  };
+
+  const handleRevokeConfirm = async () => {
+    if (!selectedCertificate || !revocationReason) {
+      alert('Please select a revocation reason');
+      return;
+    }
+
+    try {
+      setRevoking(true);
+      await CertificateService.revokeCertificate(selectedCertificate, revocationReason);
+
+      // Refresh certificates list
+      await fetchCertificateChain();
+
+      setRevokeModalOpen(false);
+      setSelectedCertificate(null);
+      setRevocationReason('');
+      alert('Certificate revoked successfully');
+    } catch (error) {
+      console.error('Error revoking certificate:', error);
+      alert('Failed to revoke certificate: ' + (error as Error).message);
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  const handleRevokeCancel = () => {
+    setRevokeModalOpen(false);
+    setSelectedCertificate(null);
+    setRevocationReason('');
+  };
+
+  const handleReasonChange = (event: SelectChangeEvent<string>) => {
+    setRevocationReason(event.target.value);
   };
 
   const handleDownload = async (serialNumber: string) => {
@@ -149,20 +218,20 @@ const CACertificates: React.FC = () => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        
+
         // Handle specific error for CA users trying to download Root certificates
         if (errorText.includes('CA users cannot download Root certificates')) {
           alert('CA users cannot download Root certificates from their organization chain.');
           return;
         }
-        
+
         throw new Error(`Download failed: ${errorText}`);
       }
 
       // Get filename from Content-Disposition header or use default
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = `certificate_${serialNumber}`;
-      
+
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/);
         if (filenameMatch) {
@@ -172,7 +241,7 @@ const CACertificates: React.FC = () => {
 
       // Get content type to determine file extension
       const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
-      
+
       // Add proper extension based on content type
       if (contentType.includes('application/zip')) {
         if (!filename.endsWith('.zip')) {
@@ -187,7 +256,7 @@ const CACertificates: React.FC = () => {
 
       // Create blob with proper MIME type
       const blob = new Blob([await response.arrayBuffer()], { type: contentType });
-      
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -245,8 +314,8 @@ const CACertificates: React.FC = () => {
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                     <Chip
-                      label={getStatusText(cert.isRevoked, cert.endDate)}
-                      color={getStatusColor(cert.isRevoked, cert.endDate) as any}
+                      label={getStatusText(cert.revoked, cert.endDate)}
+                      color={getStatusColor(cert.revoked, cert.endDate) as any}
                       size="small"
                     />
                     {cert.type === 'ROOT' ? (
@@ -265,12 +334,25 @@ const CACertificates: React.FC = () => {
                         size="small"
                         startIcon={<Download />}
                         onClick={() => handleDownload(cert.serialNumber)}
-                        disabled={cert.isRevoked}
+                        disabled={cert.revoked}
                       >
                         Download
                       </Button>
                     )}
                   </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start', mb: 2 }}>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    size="small"
+                    startIcon={<Block />}
+                    onClick={() => handleRevokeClick(cert.serialNumber)}
+                    disabled={cert.revoked}
+                  >
+                    Revoke
+                  </Button>
                 </Box>
 
                 <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -282,7 +364,7 @@ const CACertificates: React.FC = () => {
                 </Typography>
 
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  <strong>Type:</strong> 
+                  <strong>Type:</strong>
                   <Chip
                     label={cert.type}
                     color={getCertificateTypeColor(cert.type) as any}
@@ -297,36 +379,83 @@ const CACertificates: React.FC = () => {
                   </Typography>
                 )}
 
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <strong>Issuer:</strong> {cert.issuerName}
+                </Typography>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <strong>Valid From:</strong> {formatDate(cert.startDate)}
+                </Typography>
+
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <strong>Valid Until:</strong> {formatDate(cert.endDate)}
+                </Typography>
+
+                {cert.keyUsage && (
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    <strong>Issuer:</strong> {cert.issuerName}
+                    <strong>Key Usage:</strong> {cert.keyUsage}
                   </Typography>
+                )}
 
-                  <Divider sx={{ my: 2 }} />
-
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    <strong>Valid From:</strong> {formatDate(cert.startDate)}
+                {cert.extendedKeyUsage && (
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Extended Key Usage:</strong> {cert.extendedKeyUsage}
                   </Typography>
-
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    <strong>Valid Until:</strong> {formatDate(cert.endDate)}
-                  </Typography>
-
-                  {cert.keyUsage && (
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      <strong>Key Usage:</strong> {cert.keyUsage}
-                    </Typography>
-                  )}
-
-                  {cert.extendedKeyUsage && (
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Extended Key Usage:</strong> {cert.extendedKeyUsage}
-                    </Typography>
-                  )}
+                )}
               </CardContent>
             </Card>
           ))}
         </Box>
       )}
+
+      {/* Revoke Certificate Modal */}
+      <Dialog open={revokeModalOpen} onClose={handleRevokeCancel} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Block color="error" />
+            Revoke Certificate
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to revoke certificate <strong>{selectedCertificate}</strong>?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
+            This action cannot be undone. Please select a revocation reason.
+          </Typography>
+
+          <FormControl fullWidth>
+            <InputLabel id="revocation-reason-label">Revocation Reason</InputLabel>
+            <Select
+              labelId="revocation-reason-label"
+              value={revocationReason}
+              onChange={handleReasonChange}
+              label="Revocation Reason"
+            >
+              {REVOCATION_REASONS.map((reason) => (
+                <MenuItem key={reason.value} value={reason.value}>
+                  {reason.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleRevokeCancel} disabled={revoking}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRevokeConfirm}
+            color="error"
+            variant="contained"
+            disabled={!revocationReason || revoking}
+          >
+            {revoking ? <CircularProgress size={20} /> : 'Revoke Certificate'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

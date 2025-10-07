@@ -25,6 +25,7 @@ interface Certificate {
   subjectName: string;
   organization: string;
   type: string;
+  revoked: boolean;
   startDate: string;
   endDate: string;
   keyUsage: string;
@@ -67,7 +68,8 @@ const CreateCSR: React.FC = () => {
       }
 
       const certificates = await response.json();
-      setIntermediateCertificates(certificates);
+      const filteredCertificates = certificates.filter((cert: Certificate) => !cert.revoked);
+      setIntermediateCertificates(filteredCertificates);
     } catch (err) {
       setError('Error fetching intermediate certificates: ' + (err as Error).message);
     }

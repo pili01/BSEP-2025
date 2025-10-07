@@ -36,6 +36,26 @@ class CertificateService {
         return await this.handleResponse(response, 'Failed to get all certificates');
     }
 
+    // Revoke certificate
+    static async revokeCertificate(serialNumber: string, reason: string): Promise<string> {
+        const jwt = localStorage.getItem('jwt');
+        if (!jwt) throw new Error('No JWT token found');
+
+        const response = await fetch(`${API_URL}/certificates/revoke`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${jwt}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                serialNumber, 
+                reason: reason 
+            })
+        });
+
+        return await this.handleResponse(response, 'Failed to revoke certificate');
+    }
+
 		static async getIntermidiateCertificatesForUser(): Promise<Certificate[]> {
 				const jwt = localStorage.getItem('jwt');
 				if (!jwt) throw new Error('No JWT token found');

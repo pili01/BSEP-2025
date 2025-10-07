@@ -78,8 +78,9 @@ export default function CaUserIssueCertificatePage({ showSnackbar }: Props) {
         try {
             setCaLoading(true);
             const interCerts = await CertificateService.getCaUserCertificates();
+            const filteredCerts = interCerts.filter(cert => cert.revoked !== true);
             setAvailableCAs(
-                interCerts.map(cert => ({
+                filteredCerts.map(cert => ({
                     serialNumber: cert.serialNumber || '',
                     subjectName: cert.subjectName || '',
                     type: cert.type

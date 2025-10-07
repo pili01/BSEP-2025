@@ -13,6 +13,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -665,8 +666,14 @@ public class CertificateController {
         }
     }
 
-    @GetMapping("/revoke/{serialNumber}")
-    public ResponseEntity<?> revoceCertificate(@PathVariable String serialNumber, HttpServletRequest request) {
+    @PostMapping("/revoke")
+    public ResponseEntity<?> revokeCertificate(@RequestBody Map<String, String> revocationData, HttpServletRequest request) {
+        String serialNumber = revocationData.get("serialNumber");
+        String revocationReason = revocationData.get("reason");
+        if (serialNumber == null || serialNumber.isEmpty()) {
+            return ResponseEntity.badRequest().body("Serial number is required for revocation.");
+        }
+
         log.info("Certificate revoke request - Serial Number: {} from IP: {}", serialNumber, request.getRemoteAddr());
 
         try {
@@ -674,7 +681,7 @@ public class CertificateController {
             log.debug("User found in SecurityContext for revoke: {}", currentUser.getEmail());
 
             log.debug("Calling service to revoke certificate with Serial: {}", serialNumber);
-            certificateService.revokeCertificate(serialNumber, RevokedReason.KEY_COMPROMISE);
+            certificateService.revokeCertificate(currentUser, serialNumber, RevokedReason.valueOf(revocationReason));
 
             log.info("Certificate successfully revoked - Serial Number: {}, Revoked by: {}", serialNumber, currentUser.getEmail());
             return ResponseEntity.ok("Certificate revoked successfully");
@@ -712,8 +719,6 @@ public class CertificateController {
             return new ResponseEntity<>("Error retrieving intermediate certificates: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
-
 
 
     @GetMapping("/download/{serialNumber}")

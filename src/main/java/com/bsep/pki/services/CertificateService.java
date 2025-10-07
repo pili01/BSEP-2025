@@ -22,6 +22,7 @@ import org.bouncycastle.util.io.pem.PemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+
 import java.io.*;
 import java.math.BigInteger;
 import java.security.*;
@@ -33,9 +34,11 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -650,7 +653,6 @@ public class CertificateService {
     }
 
 
-
     @Transactional
     public X509Certificate signCsrAndIssueCertificate(CsrRequestDto csrDto, User issuingUser, User targetUser) throws Exception {
 
@@ -1110,16 +1112,32 @@ public class CertificateService {
     }
 
     @Transactional
-    public void revokeCertificate(String serialNumber, RevokedReason reason) {
+    public void revokeCertificate(User currentUser, String serialNumber, RevokedReason reason) {
         Optional<Certificate> certOptional = certificateRepository.findBySerialNumber(serialNumber);
         if (certOptional.isEmpty()) {
             throw new IllegalArgumentException("Certificate with serial number " + serialNumber + " not found");
         }
-        Certificate certificate = certOptional.get();
-        certificate.setRevoked(true);
-        certificate.setRevokedReason(reason);
-        certificate.setRevokedAt(LocalDateTime.now());
-        certificateRepository.save(certificate);
+        Certificate cert = certOptional.get();
+        if (cert.isRevoked()) {
+            throw new IllegalArgumentException("Certificate with serial number " + serialNumber + " is already revoked");
+        }
+        if (!cert.getUser().equals(currentUser) && currentUser.getRole() != UserRole.ADMIN) {
+            throw new IllegalArgumentException("Certificate with serial number " + serialNumber + " is not issued to the current user");
+        }
+        List<Certificate> chain = new ArrayList<>();
+        findChildCertificatesWithValidation(cert.getSerialNumber(), chain);
+        cert.setRevoked(true);
+        cert.setRevokedReason(reason);
+        cert.setRevokedAt(LocalDateTime.now());
+        certificateRepository.save(cert);
+        for (Certificate childCert : chain) {
+            if (!childCert.isRevoked()) {
+                childCert.setRevoked(true);
+                childCert.setRevokedReason(reason);
+                childCert.setRevokedAt(LocalDateTime.now());
+                certificateRepository.save(childCert);
+            }
+        }
     }
 
     @Transactional
@@ -1155,7 +1173,7 @@ public class CertificateService {
             PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
             X500Name subject = csr.getSubject();
             String subjectString = subject.toString();
-            
+
             // Parse CN from subject string like "CN=NoviCA, O=Security Inc., E=papovicognjen59@gmail.com"
             int cnIndex = subjectString.indexOf("CN=");
             if (cnIndex != -1) {
@@ -1175,7 +1193,7 @@ public class CertificateService {
             PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
             X500Name subject = csr.getSubject();
             String subjectString = subject.toString();
-            
+
             // Parse O from subject string like "CN=NoviCA, O=Security Inc., E=papovicognjen59@gmail.com"
             int oIndex = subjectString.indexOf("O=");
             if (oIndex != -1) {
@@ -1195,7 +1213,7 @@ public class CertificateService {
             PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
             X500Name subject = csr.getSubject();
             String subjectString = subject.toString();
-            
+
             // Parse E from subject string like "CN=NoviCA, O=Security Inc., E=papovicognjen59@gmail.com"
             int eIndex = subjectString.indexOf("E=");
             if (eIndex != -1) {
@@ -1213,7 +1231,7 @@ public class CertificateService {
     public String extractKeyUsage(String pemContent) {
         try {
             PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
-            
+
             // Look for keyUsage extension in attributes
             org.bouncycastle.asn1.pkcs.Attribute[] attributes = csr.getAttributes();
             for (org.bouncycastle.asn1.pkcs.Attribute attr : attributes) {
@@ -1238,7 +1256,7 @@ public class CertificateService {
     public String extractExtendedKeyUsage(String pemContent) {
         try {
             PKCS10CertificationRequest csr = parseCsrFromPem(pemContent);
-            
+
             // Look for extendedKeyUsage extension in attributes
             org.bouncycastle.asn1.pkcs.Attribute[] attributes = csr.getAttributes();
             for (org.bouncycastle.asn1.pkcs.Attribute attr : attributes) {
@@ -1281,7 +1299,8 @@ public class CertificateService {
             if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_serverAuth)) usages.add("serverAuth");
             else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_clientAuth)) usages.add("clientAuth");
             else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_codeSigning)) usages.add("codeSigning");
-            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_emailProtection)) usages.add("emailProtection");
+            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_emailProtection))
+                usages.add("emailProtection");
             else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_timeStamping)) usages.add("timeStamping");
             else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_OCSPSigning)) usages.add("ocspSigning");
         }
@@ -1321,8 +1340,6 @@ public class CertificateService {
             throw new IllegalArgumentException("Failed to parse CSR from PEM: " + e.getMessage(), e);
         }
     }
-
-
 
 
     @Transactional
@@ -1553,13 +1570,6 @@ public class CertificateService {
             throw new Exception("Failed to download certificate (public only): " + e.getMessage(), e);
         }
     }
-
-
-
-
-
-
-
 
 
 }

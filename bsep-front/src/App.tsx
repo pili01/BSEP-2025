@@ -45,8 +45,8 @@ function AppContent() {
 
   useEffect(() => {
     const handleSessionRevoked = (event: any) => {
-      if (event.reason?.message?.includes('Session revoked') || 
-          event.reason?.message?.includes('Your session has been revoked')) {
+      if (event.reason?.message?.includes('Session revoked') ||
+        event.reason?.message?.includes('Your session has been revoked')) {
         showSnackbar('Your session has been revoked by an administrator', 'warning');
         logout();
         navigate('/login');
@@ -88,7 +88,7 @@ function AppContent() {
       <Routes>
         <Route path='/' element={
           <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN, UserRole.REGULAR_USER, UserRole.CA_USER]}>
-            <Navigate to="/my-certificates" replace />
+            <h1>Home page</h1>
           </ProtectedRoute>
         } />
         <Route path='/login' element={<Login showSnackbar={showSnackbar} />} />
@@ -128,47 +128,47 @@ function AppContent() {
           </ProtectedRoute>
         } />
         <Route path='/admin-certificates' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}>
-              <AdminCertificates />
-            </ProtectedRoute>
-          } />
-          <Route path='/ca-certificates' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
-              <CACertificates />
-            </ProtectedRoute>
-          } />
-          <Route path='/my-certificates' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER, UserRole.CA_USER, UserRole.ADMIN]}>
-              <UserCertificates />
-            </ProtectedRoute>
-          } />
-          <Route path='/templates' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
-              <CreateTemplatePage showSnackbar={showSnackbar} />
-            </ProtectedRoute>
-          } />
-          <Route path='/adminIssue' element={
-              <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}> 
-                  <AdminIssueCertificatePage showSnackbar={showSnackbar} />
-              </ProtectedRoute>
-          } />
-          <Route path='/caIssue' element={
-              <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER]}> 
-                  <CaUserIssueCertificatePage showSnackbar={showSnackbar} />
-              </ProtectedRoute>
-          } />
-          <Route path='/registerCA' element={
-            <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}> 
-                <RegisterCAUserPage />
-            </ProtectedRoute>
-          } />
-          <Route path='/change-initial-password' element={
-              <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER]}> 
-                  <ChangeInitialPasswordPage />
-              </ProtectedRoute>
-          } />
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}>
+            <AdminCertificates />
+          </ProtectedRoute>
+        } />
+        <Route path='/ca-certificates' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
+            <CACertificates />
+          </ProtectedRoute>
+        } />
+        <Route path='/my-certificates' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.REGULAR_USER, UserRole.CA_USER, UserRole.ADMIN]}>
+            <UserCertificates />
+          </ProtectedRoute>
+        } />
+        <Route path='/templates' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER, UserRole.ADMIN]}>
+            <CreateTemplatePage showSnackbar={showSnackbar} />
+          </ProtectedRoute>
+        } />
+        <Route path='/adminIssue' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}>
+            <AdminIssueCertificatePage showSnackbar={showSnackbar} />
+          </ProtectedRoute>
+        } />
+        <Route path='/caIssue' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER]}>
+            <CaUserIssueCertificatePage showSnackbar={showSnackbar} />
+          </ProtectedRoute>
+        } />
+        <Route path='/registerCA' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.ADMIN]}>
+            <RegisterCAUserPage />
+          </ProtectedRoute>
+        } />
+        <Route path='/change-initial-password' element={
+          <ProtectedRoute showSnackbar={showSnackbar} allowedRoles={[UserRole.CA_USER]}>
+            <ChangeInitialPasswordPage />
+          </ProtectedRoute>
+        } />
         <Route path='*' element={<h1>404 Not Found</h1>} />
-      </Routes>   
+      </Routes>
     </ThemeProvider>
   );
 }
