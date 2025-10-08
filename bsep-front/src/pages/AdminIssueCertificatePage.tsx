@@ -41,6 +41,7 @@ interface CertificateFormData {
 interface CaOption {
     serialNumber: string;
     subjectName: string;
+    revoked: boolean;
     type?: string;
 }
 
@@ -50,10 +51,10 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
     const [templatesLoading, setTemplatesLoading] = useState(false);
     const [caLoading, setCaLoading] = useState(false);
     const [error, setError] = useState('');
-    
+
     const [availableTemplates, setAvailableTemplates] = useState<CertificateTemplate[]>([]);
     const [availableCAs, setAvailableCAs] = useState<CaOption[]>([]);
-    
+
     const [formData, setFormData] = useState<CertificateFormData>({
         type: CertificateType.END_ENTITY,
         targetUserEmail: '',
@@ -81,25 +82,27 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
             ]);
 
             const combinedCAs: CaOption[] = [
-                ...caList.map(ca => ({ 
-                    serialNumber: ca.serialNumber || '', 
+                ...caList.map(ca => ({
+                    serialNumber: ca.serialNumber || '',
                     subjectName: ca.subjectName || '',
+                    revoked: ca.revoked || false,
                     type: 'CA'
                 })),
                 ...intermediateList
                     .filter(cert => cert.type === CertificateType.ROOT || cert.type === CertificateType.INTERMEDIATE)
-                    .map(cert => ({ 
-                        serialNumber: cert.serialNumber, 
+                    .map(cert => ({
+                        serialNumber: cert.serialNumber,
                         subjectName: cert.subjectName,
+                        revoked: cert.revoked || false,
                         type: cert.type
                     }))
             ];
 
-            const uniqueCAs = combinedCAs.filter((ca, index, self) => 
+            const uniqueCAs = combinedCAs.filter((ca, index, self) =>
                 index === self.findIndex(c => c.serialNumber === ca.serialNumber)
             );
-
-            setAvailableCAs(uniqueCAs);
+            const filtered = uniqueCAs.filter(ca => !ca.revoked);
+            setAvailableCAs(filtered);
         } catch (err) {
             console.error('Failed to load CAs:', err);
             showSnackbar('Failed to load available Certificate Authorities', 'warning');
@@ -219,16 +222,16 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!validateForm()) return;
 
-				const keyUsageArray = formData.keyUsage.split(',').map(s => s.trim()).filter(s => s.length > 0);
-    		const extendedKeyUsageArray = formData.extendedKeyUsage.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        const keyUsageArray = formData.keyUsage.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        const extendedKeyUsageArray = formData.extendedKeyUsage.split(',').map(s => s.trim()).filter(s => s.length > 0);
 
         const certificateRequest: CertificateDto = {
             type: formData.type,
-						targetUserEmail: formData.targetUserEmail,
-						commonName: formData.commonName,
+            targetUserEmail: formData.targetUserEmail,
+            commonName: formData.commonName,
             organization: formData.organization,
             keyUsage: keyUsageArray,
             extendedKeyUsage: extendedKeyUsageArray,
@@ -253,12 +256,12 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
     const templateValidationIssues = selectedTemplate ? validateTemplate(selectedTemplate) : [];
 
     return (
-        <Box 
-            component="main" 
-            sx={{ 
-                minHeight: '100vh', 
-                display: 'flex', 
-                alignItems: 'center', 
+        <Box
+            component="main"
+            sx={{
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 p: 2
             }}
@@ -270,7 +273,7 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
                 <Typography variant="subtitle1" align="center" color="text.secondary" gutterBottom>
                     Administrator Certificate Issuance
                 </Typography>
-                
+
                 <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {/* Certificate Type */}
                     <FormControl fullWidth>
@@ -320,8 +323,8 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
                                     <Box>
                                         <Typography variant="body2">{option.templateName}</Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            Max validity: {option.maxValidityDays} days | 
-                                            Key Usage: {option.keyUsage} | 
+                                            Max validity: {option.maxValidityDays} days |
+                                            Key Usage: {option.keyUsage} |
                                             Extended: {option.extendedKeyUsage}
                                         </Typography>
                                     </Box>
@@ -367,7 +370,7 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
                             sx={{ flex: 2 }}
                             helperText="e.g., www.example.com, John Doe, or CA Name"
                         />
-                        
+
                         <TextField
                             label="Organization"
                             value={formData.organization}
@@ -434,9 +437,9 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
                                                             {ca.subjectName}
                                                         </Typography>
                                                         {ca.type && (
-                                                            <Chip 
-                                                                label={ca.type} 
-                                                                size="small" 
+                                                            <Chip
+                                                                label={ca.type}
+                                                                size="small"
                                                                 variant="outlined"
                                                                 color={ca.type === 'ROOT' ? 'error' : 'primary'}
                                                             />
@@ -490,7 +493,7 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
                             {error}
                         </Alert>
                     )}
-                    
+
                     <Button
                         type="submit"
                         variant="contained"

@@ -10,9 +10,12 @@ import com.bsep.pki.repositories.CertificateTemplateRepository;
 import com.bsep.pki.repositories.CsrRequestRepository;
 import jakarta.transaction.Transactional;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x500.X500NameBuilder;
+import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -147,7 +150,11 @@ public class CertificateService {
     private X509Certificate generateRootCertificate(CertificateRequestDto requestDto, Optional<CertificateTemplate> optionalTemplate, User targetUser) throws Exception {
         KeyPair keyPair = generateKeyPair();
 
-        X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
+        // Build subject with deterministic RDN order
+        X500Name subjectName = new X500NameBuilder(BCStyle.INSTANCE)
+                .addRDN(BCStyle.CN, requestDto.getCommonName())
+                .addRDN(BCStyle.O, requestDto.getOrganization())
+                .build();
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
 
         LocalDateTime now = LocalDateTime.now();
@@ -226,7 +233,8 @@ public class CertificateService {
         java.security.cert.Certificate[] issuerChain = issuerKeystore.getCertificateChain(issuerInfo.getAlias());
 
         X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
-        X500Name issuerName = new X500Name(issuerInfo.getSubjectName());
+        X509Certificate issuerX509 = (X509Certificate) issuerKeystore.getCertificate(issuerInfo.getAlias());
+        X500Name issuerName = X500Name.getInstance(issuerX509.getSubjectX500Principal().getEncoded());
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
 
         LocalDateTime now = LocalDateTime.now();
@@ -315,7 +323,8 @@ public class CertificateService {
         PrivateKey issuerPrivateKey = (PrivateKey) issuerKeystore.getKey(issuerInfo.getAlias(), issuerKeystorePassword.toCharArray());
 
         X500Name subjectName = new X500Name("CN=" + requestDto.getCommonName() + ", O=" + requestDto.getOrganization());
-        X500Name issuerName = new X500Name(issuerInfo.getSubjectName());
+        X509Certificate issuerX509 = (X509Certificate) issuerKeystore.getCertificate(issuerInfo.getAlias());
+        X500Name issuerName = X500Name.getInstance(issuerX509.getSubjectX500Principal().getEncoded());
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
 
         LocalDateTime now = LocalDateTime.now();
@@ -472,7 +481,9 @@ public class CertificateService {
         }
     }
 
-    private void saveToKeystore(X509Certificate certificate, PrivateKey privateKey, String alias, java.security.cert.Certificate[] issuerChain, String keystorePath, String keystorePassword) throws Exception {
+    private void saveToKeystore(X509Certificate certificate, PrivateKey privateKey, String
+            alias, java.security.cert.Certificate[] issuerChain, String keystorePath, String keystorePassword) throws
+            Exception {
         KeyStore keyStore = KeyStore.getInstance("JKS");
         char[] passwordChars = keystorePassword.toCharArray();
 
@@ -492,7 +503,8 @@ public class CertificateService {
         }
     }
 
-    private void saveAsTrustedCertificate(X509Certificate certificate, String keystorePath, String keystorePassword) throws Exception {
+    private void saveAsTrustedCertificate(X509Certificate certificate, String keystorePath, String keystorePassword) throws
+            Exception {
         KeyStore keyStore = KeyStore.getInstance("JKS");
         char[] passwordChars = keystorePassword.toCharArray();
 
@@ -654,7 +666,8 @@ public class CertificateService {
 
 
     @Transactional
-    public X509Certificate signCsrAndIssueCertificate(CsrRequestDto csrDto, User issuingUser, User targetUser) throws Exception {
+    public X509Certificate signCsrAndIssueCertificate(CsrRequestDto csrDto, User issuingUser, User targetUser) throws
+            Exception {
 
         PKCS10CertificationRequest csr = parseCsrFromDB(csrDto.getCsrPemContent());
 
@@ -747,7 +760,8 @@ public class CertificateService {
         return caCertificate;
     }
 
-    private void validateCaCompatibility(Certificate caCertificate, CsrRequestDto csrDto, User issuingUser) throws Exception {
+    private void validateCaCompatibility(Certificate caCertificate, CsrRequestDto csrDto, User issuingUser) throws
+            Exception {
 
         if (!caCertificate.getUser().equals(issuingUser) && issuingUser.getRole() != UserRole.ADMIN) {
             throw new SecurityException("You are not authorized to use this certificate as an issuer");
@@ -818,7 +832,8 @@ public class CertificateService {
 
 
         X500Name subjectName = csr.getSubject();
-        X500Name issuerName = new X500Name(caCertificate.getSubjectName());
+        X509Certificate caX509 = (X509Certificate) caKeystore.getCertificate(caCertificate.getAlias());
+        X500Name issuerName = X500Name.getInstance(caX509.getSubjectX500Principal().getEncoded());
         BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
 
 
@@ -1025,7 +1040,8 @@ public class CertificateService {
         return pemContent.replaceAll("\\s+", "");
     }
 
-    private void addExtensionsToBuilderForCsr(X509v3CertificateBuilder certBuilder, CsrRequestDto csrDto, Optional<CertificateTemplate> optionalTemplate, boolean isCA) throws Exception {
+    private void addExtensionsToBuilderForCsr(X509v3CertificateBuilder certBuilder, CsrRequestDto
+            csrDto, Optional<CertificateTemplate> optionalTemplate, boolean isCA) throws Exception {
         List<String> keyUsageList = optionalTemplate.map(CertificateTemplate::getKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(csrDto.getKeyUsage() != null ? Arrays.asList(csrDto.getKeyUsage().split(",")) : new ArrayList<>());
         List<String> extendedKeyUsageList = optionalTemplate.map(CertificateTemplate::getExtendedKeyUsage).map(s -> Arrays.asList(s.split(","))).orElse(csrDto.getExtendedKeyUsage() != null ? Arrays.asList(csrDto.getExtendedKeyUsage().split(",")) : new ArrayList<>());
         Optional<String> sansRegex = optionalTemplate.map(CertificateTemplate::getSansRegex);
@@ -1281,10 +1297,12 @@ public class CertificateService {
 
     private String keyUsageToString(org.bouncycastle.asn1.x509.KeyUsage keyUsage) {
         java.util.List<String> usages = new java.util.ArrayList<>();
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.digitalSignature)) usages.add("digitalSignature");
+        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.digitalSignature))
+            usages.add("digitalSignature");
         if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.nonRepudiation)) usages.add("nonRepudiation");
         if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.keyEncipherment)) usages.add("keyEncipherment");
-        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.dataEncipherment)) usages.add("dataEncipherment");
+        if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.dataEncipherment))
+            usages.add("dataEncipherment");
         if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.keyAgreement)) usages.add("keyAgreement");
         if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.keyCertSign)) usages.add("keyCertSign");
         if (keyUsage.hasUsages(org.bouncycastle.asn1.x509.KeyUsage.cRLSign)) usages.add("cRLSign");
@@ -1298,11 +1316,14 @@ public class CertificateService {
         for (org.bouncycastle.asn1.x509.KeyPurposeId oid : extendedKeyUsage.getUsages()) {
             if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_serverAuth)) usages.add("serverAuth");
             else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_clientAuth)) usages.add("clientAuth");
-            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_codeSigning)) usages.add("codeSigning");
+            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_codeSigning))
+                usages.add("codeSigning");
             else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_emailProtection))
                 usages.add("emailProtection");
-            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_timeStamping)) usages.add("timeStamping");
-            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_OCSPSigning)) usages.add("ocspSigning");
+            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_timeStamping))
+                usages.add("timeStamping");
+            else if (oid.equals(org.bouncycastle.asn1.x509.KeyPurposeId.id_kp_OCSPSigning))
+                usages.add("ocspSigning");
         }
         return String.join(",", usages);
     }
@@ -1343,7 +1364,8 @@ public class CertificateService {
 
 
     @Transactional
-    public ResponseEntity<?> downloadCertificate(String serialNumber, User requestingUser, UserRole userRole, String userOrganization) throws Exception {
+    public ResponseEntity<?> downloadCertificate(String serialNumber, User requestingUser, UserRole
+            userRole, String userOrganization) throws Exception {
         Optional<Certificate> certOpt = certificateRepository.findBySerialNumber(serialNumber);
         if (certOpt.isEmpty()) {
             throw new IllegalArgumentException("Certificate with serial number " + serialNumber + " not found.");
@@ -1455,7 +1477,8 @@ public class CertificateService {
         }
     }
 
-    private ResponseEntity<?> downloadCertificateWithPrivateKey(Certificate cert, User requestingUser) throws Exception {
+    private ResponseEntity<?> downloadCertificateWithPrivateKey(Certificate cert, User requestingUser) throws
+            Exception {
         try {
             String certUserKey = getUserEncryptionKey(cert.getUser());
             String keystorePassword = encryptionService.decrypt(cert.getKeystorePassword(), certUserKey);
