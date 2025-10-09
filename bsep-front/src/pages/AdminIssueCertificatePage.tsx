@@ -85,7 +85,7 @@ export default function AdminIssueCertificatePage({ showSnackbar }: Props) {
                 ...caList.map(ca => ({
                     serialNumber: ca.serialNumber || '',
                     subjectName: ca.subjectName || '',
-                    revoked: ca.revoked || false,
+                    revoked: typeof ca.revoked === 'string' ? ca.revoked === 'true' : !!ca.revoked,
                     type: 'CA'
                 })),
                 ...intermediateList
