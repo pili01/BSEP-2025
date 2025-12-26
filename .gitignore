@@ -39,3 +39,13 @@ buildNumber.properties
 .vscode
 
 /logs/
+
+GenerisanjeKljuceva*
+*.crt
+*.key
+*.csr
+*.p12
+*.cnf
+*.srl
+*.jks
+*.pem
